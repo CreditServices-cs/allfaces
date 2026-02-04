@@ -81,7 +81,6 @@
                 description: 'A pessoa que trabalha melhor em equipe, compartilha conhecimento e ajuda todos a crescerem juntos.'
             }
         ];
-
         // Função para enviar dados ao Google Sheets
         const sendToGoogleSheets = async (nomination) => {
             try {
@@ -146,7 +145,6 @@
                 return { success: false, message: 'Erro de conexão' };
             }
         };
-
         // Layout Component
         const Layout = ({ children, showHeader = false }) => {
             return (
@@ -182,7 +180,6 @@
                 </div>
             );
         };
-
         // Main App Component
         const App = () => {
             const [step, setStep] = useState('welcome');
@@ -269,43 +266,12 @@
                 setIsAdminAuthenticated(isAuth);
             }, []);
 
+            // VALIDAÇÃO CORRIGIDA - só limpa erro quando digita
             useEffect(() => {
-                if (!isAskingReason && nomineeName.trim()) {
-                    const normalizedName = nomineeName.trim().toLowerCase();
-                    const normalizedVoterName = voterName.trim().toLowerCase();
-                    
-                    if (normalizedName === 'não') {
-                        setValidationError('');
-                        return;
-                    }
-
-                    // Verifica se tem nome e sobrenome (pelo menos 2 palavras)
-                    const nameParts = nomineeName.trim().split(/\s+/);
-                    if (nameParts.length < 2) {
-                        setValidationError('Por favor, digite nome e sobrenome completos (ex: João Silva)');
-                        return;
-                    }
-
-                    // Verifica se a pessoa está tentando se indicar
-                    if (normalizedName === normalizedVoterName) {
-                        setValidationError('Você não pode indicar a si mesmo(a)!');
-                        return;
-                    }
-
-                    const alreadyNominated = allNominations.some(
-                        n => n.categoryId === currentCategory.id && 
-                        n.nomineeName.toLowerCase() === normalizedName
-                    );
-
-                    if (alreadyNominated) {
-                        setValidationError('Esta pessoa já foi indicada por você nesta categoria!');
-                    } else {
-                        setValidationError('');
-                    }
-                } else {
+                if (validationError && nomineeName.trim()) {
                     setValidationError('');
                 }
-            }, [nomineeName, currentCategory.id, allNominations, isAskingReason, voterName]);
+            }, [nomineeName]);
 
             const handleReset = () => {
                 setStep('welcome');
@@ -315,13 +281,12 @@
                 setReason('');
                 setValidationError('');
             };
-
+            // FUNÇÃO HANDLENEXT CORRIGIDA - validação só no clique
             const handleNext = async () => {
-                if (validationError) return;
-
                 const isLastCategory = currentCategoryIndex === CATEGORIES.length - 1;
 
                 if (nomineeName.trim().toUpperCase() === 'NÃO') {
+                    setValidationError(''); // Limpa erro se for "NÃO"
                     if (isLastCategory) {
                         setStep('finished');
                     } else {
@@ -335,6 +300,41 @@
 
                 if (!isAskingReason) {
                     if (!nomineeName.trim()) return;
+                    
+                    // VALIDAÇÃO APENAS AQUI - quando tentar avançar
+                    const nameParts = nomineeName.trim().split(/\s+/).filter(part => part.length > 0);
+                    if (nameParts.length < 2) {
+                        setValidationError('Por favor, inclua o sobrenome. Digite nome e sobrenome completos (ex: João Silva)');
+                        return;
+                    }
+
+                    // Verifica se cada parte tem pelo menos 2 caracteres
+                    const hasValidParts = nameParts.every(part => part.length >= 2);
+                    if (!hasValidParts) {
+                        setValidationError('Nome e sobrenome devem ter pelo menos 2 caracteres cada');
+                        return;
+                    }
+
+                    // Verifica se a pessoa está tentando se indicar
+                    const normalizedName = nomineeName.trim().toLowerCase();
+                    const normalizedVoterName = voterName.trim().toLowerCase();
+                    if (normalizedName === normalizedVoterName) {
+                        setValidationError('Você não pode indicar a si mesmo(a)!');
+                        return;
+                    }
+
+                    // Verifica se já foi indicado nesta categoria
+                    const alreadyNominated = allNominations.some(
+                        n => n.categoryId === currentCategory.id && 
+                        n.nomineeName.toLowerCase() === normalizedName
+                    );
+                    if (alreadyNominated) {
+                        setValidationError('Esta pessoa já foi indicada por você nesta categoria!');
+                        return;
+                    }
+
+                    // Se chegou até aqui, limpa o erro e avança
+                    setValidationError('');
                     setIsAskingReason(true);
                 } else {
                     setIsSubmitting(true);
@@ -359,7 +359,6 @@
                     
                     if (!result.success) {
                         console.error('Erro ao salvar no Google Sheets:', result.message);
-                        // Continua mesmo se falhar - dados ficam salvos localmente
                     }
 
                     setIsSubmitting(false);
@@ -378,19 +377,16 @@
                     }, 1000);
                 }
             };
-
             const exportToCSV = async () => {
                 if (!isAdminAuthenticated) {
                     alert("Acesso negado! Apenas administradores podem exportar dados.");
                     return;
                 }
 
-                // Tenta buscar dados do Google Sheets primeiro
                 const sheetsResult = await getFromGoogleSheets();
                 let dataToExport = allNominations;
 
                 if (sheetsResult.success && sheetsResult.data.length > 0) {
-                    // Usa dados do Google Sheets se disponível
                     dataToExport = sheetsResult.data.map(row => ({
                         voterName: row.Votante || row.voterName,
                         voterEmail: row.Email || row.voterEmail,
@@ -434,11 +430,9 @@
                 }
 
                 if (confirm("Tem certeza que deseja limpar todos os dados salvos? Esta ação não pode ser desfeita.")) {
-                    // Limpa dados locais
                     localStorage.removeItem('cs-awards-nominations');
                     setAllNominations([]);
                     
-                    // Limpa dados do Google Sheets
                     const result = await clearGoogleSheets(CONFIG.ADMIN_PASSWORD);
                     
                     if (result.success) {
@@ -448,14 +442,13 @@
                     }
                 }
             };
-
             return (
                 <Layout showHeader={step !== 'welcome'}>
                     {step === 'welcome' && (
                         <div className="flex flex-col items-center animate-fade-in">
+                            {/* Header com troféu */}
                             <div className="w-full relative bg-black rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,1)] border border-gray-900 mb-10 aspect-video flex items-center justify-center group">
                                 <div className="absolute inset-0 bg-gradient-to-br from-[#111] via-black to-[#050505] z-0"></div>
-                                
                                 <div className="relative z-10 flex w-full h-full items-center justify-between px-6 md:px-16">
                                     <div className="flex flex-col items-start md:items-center justify-center flex-[1.5]">
                                         <div className="flex gap-4 mb-2 md:mb-6">
@@ -466,7 +459,6 @@
                                         <h1 className="text-8xl md:text-[11rem] font-serif font-medium text-[#d4af37] leading-[0.8] tracking-tighter uppercase mb-2">CS</h1>
                                         <h2 className="text-3xl md:text-6xl font-serif font-light text-[#d4af37] tracking-[0.3em] uppercase">AWARDS</h2>
                                     </div>
-                                    
                                     <div className="flex-1 h-full flex items-center justify-center pr-4 md:pr-0">
                                         <div className="h-[90%] w-auto relative drop-shadow-[0_0_40px_rgba(212,175,55,0.4)] hover:scale-105 transition-transform duration-700">
                                             <svg viewBox="0 0 100 240" className="h-full w-full fill-[#d4af37] opacity-95 brightness-110 drop-shadow-[0_0_15px_rgba(0,0,0,1)]">
@@ -483,7 +475,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                
                                 <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-black/40 pointer-events-none"></div>
                             </div>
 
@@ -492,7 +483,6 @@
                                 
                                 <div className="space-y-4 text-gray-400 mb-8 text-sm md:text-base">
                                     <p>{CONFIG.TEXTS.WELCOME_DESCRIPTION}</p>
-                                    
                                     <div className="flex justify-center gap-8 text-[10px] uppercase tracking-widest font-black text-[#d4af37]">
                                         <span className="flex flex-col">
                                             <span className="text-white/40 mb-1">⏱️ Duração</span>
@@ -511,7 +501,6 @@
                                         <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black mb-2">
                                             Identifique-se para continuar
                                         </label>
-                                        
                                         <div className="space-y-3">
                                             <input
                                                 type="text"
@@ -520,7 +509,6 @@
                                                 placeholder="Seu nome completo..."
                                                 className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-gray-200 p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-500"
                                             />
-                                            
                                             <input
                                                 type="email"
                                                 value={voterEmail}
@@ -529,13 +517,11 @@
                                                 className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-gray-200 p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-500"
                                             />
                                         </div>
-                                        
                                         {identificationError && (
                                             <p className="text-red-500 text-xs font-bold mt-2 flex items-center gap-2 animate-pulse">
                                                 <span>⚠️</span> {identificationError}
                                             </p>
                                         )}
-                                        
                                         <p className="mt-3 text-[9px] text-gray-600 italic text-center">
                                             Seus dados são salvos automaticamente no Google Sheets para controle interno.
                                         </p>
@@ -548,7 +534,6 @@
                                 >
                                     Vamos começar?
                                 </button>
-                                
                                 {/* Atalho Administrativo Discreto */}
                                 <div className="mt-8 pt-6 border-t border-gray-900/30">
                                     {!isAdminAuthenticated ? (
@@ -563,14 +548,9 @@
                                             ) : (
                                                 <div className="bg-gray-950/80 p-4 rounded-xl border border-gray-800/50 space-y-3">
                                                     <div className="text-center">
-                                                        <h3 className="text-[#d4af37] font-black text-xs uppercase tracking-widest mb-1">
-                                                            🔐 Admin
-                                                        </h3>
-                                                        <p className="text-gray-500 text-[10px]">
-                                                            Acesso rápido para exportação
-                                                        </p>
+                                                        <h3 className="text-[#d4af37] font-black text-xs uppercase tracking-widest mb-1">🔐 Admin</h3>
+                                                        <p className="text-gray-500 text-[10px]">Acesso rápido para exportação</p>
                                                     </div>
-                                                    
                                                     <div className="space-y-2">
                                                         <input
                                                             type="password"
@@ -581,7 +561,6 @@
                                                             className="w-full bg-black/60 border border-gray-700 focus:border-[#d4af37] text-gray-200 p-3 rounded-lg outline-none transition-all text-xs placeholder:text-gray-500"
                                                             autoFocus
                                                         />
-                                                        
                                                         <div className="flex gap-2">
                                                             <button
                                                                 onClick={() => {
@@ -615,12 +594,8 @@
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-green-400 text-sm">✓</span>
                                                         <div>
-                                                            <p className="text-green-400 font-bold text-[10px] uppercase tracking-widest">
-                                                                Admin Logado
-                                                            </p>
-                                                            <p className="text-green-300/70 text-[9px]">
-                                                                Acesso liberado
-                                                            </p>
+                                                            <p className="text-green-400 font-bold text-[10px] uppercase tracking-widest">Admin Logado</p>
+                                                            <p className="text-green-300/70 text-[9px]">Acesso liberado</p>
                                                         </div>
                                                     </div>
                                                     <button
@@ -631,7 +606,6 @@
                                                     </button>
                                                 </div>
                                             </div>
-
                                             <div className="flex flex-col gap-2">
                                                 <button
                                                     onClick={exportToCSV}
@@ -639,7 +613,6 @@
                                                 >
                                                     <span>📥</span> Exportar CSV - Google Sheets
                                                 </button>
-                                                
                                                 <button
                                                     onClick={clearAllData}
                                                     className="w-full py-2 bg-red-950/50 text-red-400 text-[8px] font-black uppercase tracking-[0.4em] rounded-lg hover:text-red-300 hover:bg-red-900/50 transition-all flex items-center justify-center gap-2"
@@ -649,7 +622,6 @@
                                             </div>
                                         </div>
                                     )}
-                                    
                                     <p className="mt-3 text-[8px] text-gray-800 uppercase tracking-widest font-bold text-center">
                                         {isAdminAuthenticated ? 'Painel Admin Ativo' : 'Apenas para administradores'}
                                     </p>
@@ -657,7 +629,6 @@
                             </div>
                         </div>
                     )}
-
                     {step === 'nominating' && (
                         <div className="animate-fade-in relative min-h-[420px]">
                             {(showSuccessMark || isSubmitting) && (
@@ -734,10 +705,10 @@
                                     </div>
 
                                     <button
-                                        disabled={!nomineeName.trim() || !!validationError || showSuccessMark || isSubmitting}
+                                        disabled={!nomineeName.trim() || showSuccessMark || isSubmitting}
                                         onClick={handleNext}
                                         className={`w-full py-5 font-black uppercase tracking-[0.25em] rounded-xl transition-all duration-500 shadow-2xl text-sm ${
-                                            !nomineeName.trim() || !!validationError || showSuccessMark || isSubmitting
+                                            !nomineeName.trim() || showSuccessMark || isSubmitting
                                                 ? 'bg-gray-950 text-gray-800 cursor-not-allowed opacity-40'
                                                 : 'oscar-bg-gold text-black hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(212,175,55,0.3)] active:scale-[0.98]'
                                         }`}
@@ -799,7 +770,6 @@
                             )}
                         </div>
                     )}
-
                     {step === 'finished' && (
                         <div className="flex flex-col items-center text-center animate-fade-in py-16">
                             <div className="relative mb-10">
@@ -837,14 +807,9 @@
                                             ) : (
                                                 <div className="bg-gray-950 p-6 rounded-xl border border-gray-800 space-y-4">
                                                     <div className="text-center">
-                                                        <h3 className="text-[#d4af37] font-black text-sm uppercase tracking-widest mb-2">
-                                                            🔐 Login Administrativo
-                                                        </h3>
-                                                        <p className="text-gray-500 text-xs">
-                                                            Digite a senha para acessar funcionalidades administrativas
-                                                        </p>
+                                                        <h3 className="text-[#d4af37] font-black text-sm uppercase tracking-widest mb-2">🔐 Login Administrativo</h3>
+                                                        <p className="text-gray-500 text-xs">Digite a senha para acessar funcionalidades administrativas</p>
                                                     </div>
-                                                    
                                                     <div className="space-y-3">
                                                         <input
                                                             type="password"
@@ -855,7 +820,6 @@
                                                             className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-gray-200 p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-500"
                                                             autoFocus
                                                         />
-                                                        
                                                         <div className="flex gap-3">
                                                             <button
                                                                 onClick={() => {
@@ -889,12 +853,8 @@
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-green-400 text-lg">✓</span>
                                                         <div>
-                                                            <p className="text-green-400 font-bold text-xs uppercase tracking-widest">
-                                                                Administrador Autenticado
-                                                            </p>
-                                                            <p className="text-green-300/70 text-[10px]">
-                                                                Dados sincronizados com Google Sheets
-                                                            </p>
+                                                            <p className="text-green-400 font-bold text-xs uppercase tracking-widest">Administrador Autenticado</p>
+                                                            <p className="text-green-300/70 text-[10px]">Dados sincronizados com Google Sheets</p>
                                                         </div>
                                                     </div>
                                                     <button
@@ -905,7 +865,6 @@
                                                     </button>
                                                 </div>
                                             </div>
-
                                             <div className="flex flex-col gap-3">
                                                 <button
                                                     onClick={exportToCSV}
@@ -913,7 +872,6 @@
                                                 >
                                                     <span>📥</span> Extrair Dados (CSV) - Google Sheets
                                                 </button>
-                                                
                                                 <button
                                                     onClick={clearAllData}
                                                     className="w-full py-3 bg-red-950 text-red-400 text-[9px] font-black uppercase tracking-[0.5em] rounded-xl hover:text-red-300 hover:bg-red-900 transition-all flex items-center justify-center gap-3"
@@ -923,7 +881,6 @@
                                             </div>
                                         </div>
                                     )}
-                                    
                                     <p className="mt-4 text-[9px] text-gray-800 uppercase tracking-widest font-bold text-center">
                                         {isAdminAuthenticated ? 'Dados sincronizados com Google Sheets' : 'Dados salvos automaticamente'}
                                     </p>
