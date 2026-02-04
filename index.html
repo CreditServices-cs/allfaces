@@ -446,36 +446,13 @@
                 <Layout showHeader={step !== 'welcome'}>
                     {step === 'welcome' && (
                         <div className="flex flex-col items-center animate-fade-in">
-                            {/* Header com troféu */}
-                            <div className="w-full relative bg-black rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,1)] border border-gray-900 mb-10 aspect-video flex items-center justify-center group">
-                                <div className="absolute inset-0 bg-gradient-to-br from-[#111] via-black to-[#050505] z-0"></div>
-                                <div className="relative z-10 flex w-full h-full items-center justify-between px-6 md:px-16">
-                                    <div className="flex flex-col items-start md:items-center justify-center flex-[1.5]">
-                                        <div className="flex gap-4 mb-2 md:mb-6">
-                                            <span className="text-[#F5D98A] text-xl md:text-3xl rotate-45 animate-pulse">✦</span>
-                                            <span className="text-[#F5D98A] text-3xl md:text-5xl -mt-4 animate-pulse delay-100">✦</span>
-                                            <span className="text-[#F5D98A] text-xl md:text-3xl rotate-45 animate-pulse delay-200">✦</span>
-                                        </div>
-                                        <h1 className="text-8xl md:text-[11rem] font-serif font-medium text-[#F5D98A] leading-[0.8] tracking-tighter uppercase mb-2">CS</h1>
-                                        <h2 className="text-3xl md:text-6xl font-serif font-light text-[#F5D98A] tracking-[0.3em] uppercase">AWARDS</h2>
-                                    </div>
-                                    <div className="flex-1 h-full flex items-center justify-center pr-4 md:pr-0">
-                                        <div className="h-[90%] w-auto relative drop-shadow-[0_0_40px_rgba(212,175,55,0.4)] hover:scale-105 transition-transform duration-700">
-                                            <svg viewBox="0 0 100 240" className="h-full w-full fill-[#d4af37] opacity-95 brightness-110 drop-shadow-[0_0_15px_rgba(0,0,0,1)]">
-                                                <path d="M50 15 C54 15 57 19 57 23 C57 30 50 36 50 36 C50 36 43 30 43 23 C43 19 46 15 50 15 Z" />
-                                                <path d="M42 42 L58 42 L62 75 L50 95 L38 75 Z" />
-                                                <rect x="44" y="95" width="12" height="65" rx="3" />
-                                                <path d="M38 42 Q32 50 39 70" stroke="#d4af37" strokeWidth="2.5" fill="none" />
-                                                <path d="M62 42 Q68 50 61 70" stroke="#d4af37" strokeWidth="2.5" fill="none" />
-                                                <rect x="35" y="165" width="30" height="20" rx="3" fill="#1a1a1a" />
-                                                <rect x="30" y="185" width="40" height="15" rx="5" fill="#0c0c0c" />
-                                                <rect x="49" y="48" width="2" height="110" fill="#d4af37" opacity="0.8" />
-                                                <path d="M54 20 L55 22" stroke="white" strokeWidth="1" opacity="0.3" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-black/40 pointer-events-none"></div>
+                             <div className="w-full relative bg-black rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,1)] border border-gray-900 mb-10 aspect-video">
+                                <img
+                                    src="assets/cs-awards-hero.png.png"
+                                    alt="Capa do CS Awards"
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                    loading="eager"
+                                />
                             </div>
 
                             <div className="max-w-md w-full px-4 text-center">
@@ -897,4 +874,5 @@
     </script>
 </body>
 </html>
+
 
