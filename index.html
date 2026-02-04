@@ -1,935 +1,730 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CS Awards 2026</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .oscar-bg-gold {
-            background: linear-gradient(135deg, #d4af37 0%, #f4d03f 50%, #d4af37 100%);
+import React, { useState, useCallback, useEffect } from 'react';
+import { Layout } from './components/Layout';
+import { CATEGORIES } from './constants';
+import { AppStep, Nomination } from './types';
+import { CONFIG } from './config';
+
+const App: React.FC = () => {
+  const [step, setStep] = useState<AppStep>('welcome');
+  const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
+  const [isAskingReason, setIsAskingReason] = useState(false);
+  const [showSuccessMark, setShowSuccessMark] = useState(false);
+  const [nomineeName, setNomineeName] = useState('');
+  const [reason, setReason] = useState('');
+  const [validationError, setValidationError] = useState('');
+  const [allNominations, setAllNominations] = useState<Nomination[]>(() => {
+    // Carrega dados salvos do localStorage
+    const saved = localStorage.getItem('cs-awards-nominations');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  
+  // Novos estados para identificação do usuário
+  const [voterName, setVoterName] = useState(() => {
+    return localStorage.getItem('cs-awards-voter-name') || '';
+  });
+  const [voterEmail, setVoterEmail] = useState(() => {
+    return localStorage.getItem('cs-awards-voter-email') || '';
+  });
+  const [identificationError, setIdentificationError] = useState('');
+
+  // Senha de administrador (configurável no arquivo config.ts)
+  const ADMIN_PASSWORD = CONFIG.ADMIN_PASSWORD;
+
+  const currentCategory = CATEGORIES[currentCategoryIndex];
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === 'true') {
+      setShowAdmin(true);
+    }
+  }, []);
+
+  const handleAdminLogin = () => {
+    if (adminPassword === ADMIN_PASSWORD) {
+      setIsAdminAuthenticated(true);
+      setShowAdminLogin(false);
+      setAdminPassword('');
+      // Salva autenticação na sessão (válida apenas enquanto a aba estiver aberta)
+      sessionStorage.setItem('cs-admin-auth', 'true');
+    } else {
+      alert('Senha incorreta!');
+      setAdminPassword('');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdminAuthenticated(false);
+    sessionStorage.removeItem('cs-admin-auth');
+  };
+
+  // Verifica se já está autenticado na sessão
+  useEffect(() => {
+    const isAuth = sessionStorage.getItem('cs-admin-auth') === 'true';
+    setIsAdminAuthenticated(isAuth);
+  }, []);
+
+  useEffect(() => {
+    if (!isAskingReason && nomineeName.trim()) {
+      const normalizedName = nomineeName.trim().toLowerCase();
+      const normalizedVoterName = voterName.trim().toLowerCase();
+      
+      if (normalizedName === 'não') {
+        setValidationError('');
+        return;
+      }
+
+      // Verifica se a pessoa está tentando se indicar
+      if (normalizedName === normalizedVoterName) {
+        setValidationError('Você não pode indicar a si mesmo(a)!');
+        return;
+      }
+
+      const alreadyNominated = allNominations.some(
+        n => n.categoryId === currentCategory.id && 
+        n.nomineeName.toLowerCase() === normalizedName
+      );
+
+      if (alreadyNominated) {
+        setValidationError('Esta pessoa já foi indicada por você nesta categoria!');
+      } else {
+        setValidationError('');
+      }
+    } else {
+      setValidationError('');
+    }
+  }, [nomineeName, currentCategory.id, allNominations, isAskingReason, voterName]);
+
+  const handleStart = () => {
+    // Validação de identificação
+    if (!voterName.trim()) {
+      setIdentificationError('Por favor, digite seu nome completo.');
+      return;
+    }
+    
+    if (!voterEmail.trim()) {
+      setIdentificationError('Por favor, digite seu e-mail.');
+      return;
+    }
+    
+    // Validação básica de e-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(voterEmail.trim())) {
+      setIdentificationError('Por favor, digite um e-mail válido.');
+      return;
+    }
+    
+    // Salva identificação no localStorage
+    localStorage.setItem('cs-awards-voter-name', voterName.trim());
+    localStorage.setItem('cs-awards-voter-email', voterEmail.trim());
+    
+    setIdentificationError('');
+    setStep('nominating');
+  };
+
+  const handleReset = () => {
+    setStep('welcome');
+    setCurrentCategoryIndex(0);
+    setIsAskingReason(false);
+    setNomineeName('');
+    setReason('');
+    setValidationError('');
+  };
+
+  const handleNext = () => {
+    if (validationError) return;
+
+    const isLastCategory = currentCategoryIndex === CATEGORIES.length - 1;
+
+    if (nomineeName.trim().toUpperCase() === 'NÃO') {
+      if (isLastCategory) {
+        setStep('finished');
+      } else {
+        setCurrentCategoryIndex(prev => prev + 1);
+        setNomineeName('');
+        setReason('');
+        setIsAskingReason(false);
+      }
+      return;
+    }
+
+    if (!isAskingReason) {
+      if (!nomineeName.trim()) return;
+      setIsAskingReason(true);
+    } else {
+      const newNomination: Nomination = {
+        categoryId: currentCategory.id,
+        categoryName: currentCategory.movieReference,
+        nomineeName: nomineeName.trim(),
+        reason: reason.trim() || undefined,
+        timestamp: new Date().toISOString(),
+        voterName: voterName.trim(),
+        voterEmail: voterEmail.trim()
+      };
+
+      setAllNominations(prev => {
+        const updated = [...prev, newNomination];
+        // Salva automaticamente no localStorage
+        localStorage.setItem('cs-awards-nominations', JSON.stringify(updated));
+        return updated;
+      });
+      setShowSuccessMark(true);
+
+      setTimeout(() => {
+        setShowSuccessMark(false);
+        if (isLastCategory) {
+          setStep('finished');
+        } else {
+          setCurrentCategoryIndex(prev => prev + 1);
+          setNomineeName('');
+          setReason('');
+          setIsAskingReason(false);
         }
-        
-        .animate-fade-in {
-            animation: fadeIn 0.6s ease-out forwards;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .bg-radial-gradient {
-            background: radial-gradient(circle at center, var(--tw-gradient-stops));
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
+      }, 1000);
+    }
+  };
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+  const exportToCSV = () => {
+    if (!isAdminAuthenticated) {
+      alert("Acesso negado! Apenas administradores podem exportar dados.");
+      return;
+    }
 
-        // Configurações
-        const CONFIG = {
-            ADMIN_PASSWORD: 'cs2026admin',
-            CEREMONY_DATE: '12 de fevereiro de 2026',
-            EXPORT_FILENAME_PREFIX: 'cs_awards_indicacoes',
-            // URL DO GOOGLE APPS SCRIPT CONFIGURADA
-            GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwl05iP86BTWMko6SzTOzLmYnP97KyXd4pMRWSAfXUZeadEIEcMTo_Ajf74hsZJXLGv/exec',
-            TEXTS: {
-                WELCOME_TITLE: 'A grande premiação all faces 🥬',
-                WELCOME_DESCRIPTION: 'Indique seus colegas favoritos e ajude a celebrar quem faz a diferença no nosso dia a dia.',
-                CEREMONY_MESSAGE: 'Nos vemos na cerimônia oficial em'
-            }
-        };
+    if (allNominations.length === 0) {
+      alert("Nenhuma indicação para exportar.");
+      return;
+    }
 
-        // Categorias
-        const CATEGORIES = [
-            {
-                id: 'melhor-colega',
-                movieReference: 'Melhor Colega de Trabalho',
-                description: 'Aquela pessoa que sempre está disposta a ajudar, colabora em equipe e torna o ambiente de trabalho mais agradável.'
-            },
-            {
-                id: 'mais-criativo',
-                movieReference: 'Mais Criativo',
-                description: 'Quem sempre traz ideias inovadoras e soluções criativas para os desafios do dia a dia.'
-            },
-            {
-                id: 'mais-dedicado',
-                movieReference: 'Mais Dedicado',
-                description: 'A pessoa que demonstra comprometimento excepcional e vai além do esperado em suas responsabilidades.'
-            },
-            {
-                id: 'melhor-lideranca',
-                movieReference: 'Melhor Liderança',
-                description: 'Quem inspira e guia a equipe com excelência, promovendo crescimento e resultados positivos.'
-            },
-            {
-                id: 'mais-colaborativo',
-                movieReference: 'Mais Colaborativo',
-                description: 'A pessoa que trabalha melhor em equipe, compartilha conhecimento e ajuda todos a crescerem juntos.'
-            }
-        ];
+    const headers = ["Votante", "Email", "Categoria", "Indicado", "Motivo", "Data/Hora"];
+    const rows = allNominations.map(n => [
+      `"${n.voterName || 'N/A'}"`,
+      `"${n.voterEmail || 'N/A'}"`,
+      `"${n.categoryName}"`,
+      `"${n.nomineeName}"`,
+      `"${n.reason || ''}"`,
+      `"${new Date(n.timestamp).toLocaleString('pt-BR')}"`
+    ]);
 
-        // Função para enviar dados ao Google Sheets
-        const sendToGoogleSheets = async (nomination) => {
-            try {
-                const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'submit_nomination',
-                        nomination: nomination
-                    })
-                });
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${CONFIG.EXPORT_FILENAME_PREFIX}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
-                const result = await response.json();
-                return result;
-            } catch (error) {
-                console.error('Erro ao enviar para Google Sheets:', error);
-                return { success: false, message: 'Erro de conexão' };
-            }
-        };
+  const clearAllData = () => {
+    if (!isAdminAuthenticated) {
+      alert("Acesso negado! Apenas administradores podem limpar dados.");
+      return;
+    }
 
-        // Função para buscar dados do Google Sheets (admin)
-        const getFromGoogleSheets = async () => {
-            try {
-                const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'get_nominations'
-                    })
-                });
+    if (confirm("Tem certeza que deseja limpar todos os dados salvos? Esta ação não pode ser desfeita.")) {
+      localStorage.removeItem('cs-awards-nominations');
+      setAllNominations([]);
+      alert("Dados limpos com sucesso!");
+    }
+  };
 
-                const result = await response.json();
-                return result;
-            } catch (error) {
-                console.error('Erro ao buscar do Google Sheets:', error);
-                return { success: false, message: 'Erro de conexão' };
-            }
-        };
-
-        // Função para limpar dados do Google Sheets (admin)
-        const clearGoogleSheets = async (adminPassword) => {
-            try {
-                const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'clear_all',
-                        adminPassword: adminPassword
-                    })
-                });
-
-                const result = await response.json();
-                return result;
-            } catch (error) {
-                console.error('Erro ao limpar Google Sheets:', error);
-                return { success: false, message: 'Erro de conexão' };
-            }
-        };
-
-        // Layout Component
-        const Layout = ({ children, showHeader = false }) => {
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-black via-gray-950 to-black text-white">
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-900/20 via-transparent to-transparent"></div>
-                    
-                    {showHeader && (
-                        <header className="relative z-10 p-6 border-b border-gray-900/50">
-                            <div className="max-w-4xl mx-auto flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-2xl">🏆</span>
-                                    <div>
-                                        <h1 className="text-xl font-serif font-bold text-[#d4af37]">CS AWARDS</h1>
-                                        <p className="text-xs text-gray-500 uppercase tracking-widest">Premiação 2026</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </header>
-                    )}
-                    
-                    <main className="relative z-10 flex items-center justify-center min-h-screen p-6">
-                        <div className="w-full max-w-2xl">
-                            {children}
-                        </div>
-                    </main>
-                    
-                    <div className="fixed inset-0 pointer-events-none">
-                        <div className="absolute top-10 left-10 w-2 h-2 bg-[#d4af37] rounded-full animate-pulse opacity-30"></div>
-                        <div className="absolute top-32 right-20 w-1 h-1 bg-white rounded-full animate-pulse opacity-20 delay-1000"></div>
-                        <div className="absolute bottom-20 left-32 w-1.5 h-1.5 bg-[#d4af37] rounded-full animate-pulse opacity-25 delay-2000"></div>
-                        <div className="absolute bottom-40 right-10 w-1 h-1 bg-white rounded-full animate-pulse opacity-15 delay-3000"></div>
-                    </div>
-                </div>
-            );
-        };
-
-        // Main App Component
-        const App = () => {
-            const [step, setStep] = useState('welcome');
-            const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
-            const [isAskingReason, setIsAskingReason] = useState(false);
-            const [showSuccessMark, setShowSuccessMark] = useState(false);
-            const [nomineeName, setNomineeName] = useState('');
-            const [reason, setReason] = useState('');
-            const [validationError, setValidationError] = useState('');
-            const [allNominations, setAllNominations] = useState(() => {
-                const saved = localStorage.getItem('cs-awards-nominations');
-                return saved ? JSON.parse(saved) : [];
-            });
-            const [showAdmin, setShowAdmin] = useState(false);
-            const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-            const [adminPassword, setAdminPassword] = useState('');
-            const [showAdminLogin, setShowAdminLogin] = useState(false);
-            const [isSubmitting, setIsSubmitting] = useState(false);
+  return (
+    <Layout showHeader={step !== 'welcome'}>
+      {step === 'welcome' && (
+        <div className="flex flex-col items-center animate-fade-in">
+          <div className="w-full relative bg-black rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,1)] border border-gray-900 mb-10 aspect-video flex items-center justify-center group">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#111] via-black to-[#050505] z-0"></div>
             
-            // Novos estados para identificação do usuário
-            const [voterName, setVoterName] = useState(() => {
-                return localStorage.getItem('cs-awards-voter-name') || '';
-            });
-            const [voterEmail, setVoterEmail] = useState(() => {
-                return localStorage.getItem('cs-awards-voter-email') || '';
-            });
-            const [identificationError, setIdentificationError] = useState('');
-
-            const currentCategory = CATEGORIES[currentCategoryIndex];
-
-            useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                if (params.get('admin') === 'true') {
-                    setShowAdmin(true);
-                }
-            }, []);
-
-            const handleStart = () => {
-                // Validação de identificação
-                if (!voterName.trim()) {
-                    setIdentificationError('Por favor, digite seu nome completo.');
-                    return;
-                }
+            {/* Imagem de capa do CS Awards */}
+            <div className="relative z-10 w-full h-full flex items-center justify-center">
+              <img 
+                src="/cs-awards-cover.jpg" 
+                alt="CS Awards - A grande premiação all faces"
+                className="w-full h-full object-cover rounded-2xl hover:scale-105 transition-transform duration-700"
+                onError={(e) => {
+                  // Fallback para o design original caso a imagem não carregue
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              
+              {/* Fallback design original (oculto por padrão) */}
+              <div className="hidden absolute inset-0 flex w-full h-full items-center justify-between px-6 md:px-16">
+                <div className="flex flex-col items-start md:items-center justify-center flex-[1.5]">
+                  <div className="flex gap-4 mb-2 md:mb-6">
+                    <span className="text-[#d4af37] text-xl md:text-3xl rotate-45 animate-pulse">✦</span>
+                    <span className="text-[#d4af37] text-3xl md:text-5xl -mt-4 animate-pulse delay-100">✦</span>
+                    <span className="text-[#d4af37] text-xl md:text-3xl rotate-45 animate-pulse delay-200">✦</span>
+                  </div>
+                  <h1 className="text-8xl md:text-[11rem] font-serif font-medium text-[#d4af37] leading-[0.8] tracking-tighter uppercase mb-2">CS</h1>
+                  <h2 className="text-3xl md:text-6xl font-serif font-light text-[#d4af37] tracking-[0.3em] uppercase">AWARDS</h2>
+                </div>
                 
-                if (!voterEmail.trim()) {
-                    setIdentificationError('Por favor, digite seu e-mail.');
-                    return;
-                }
+                <div className="flex-1 h-full flex items-center justify-center pr-4 md:pr-0">
+                  <div className="h-[90%] w-auto relative drop-shadow-[0_0_40px_rgba(212,175,55,0.4)] hover:scale-105 transition-transform duration-700">
+                    <svg viewBox="0 0 100 240" className="h-full w-full fill-[#d4af37] opacity-95 brightness-110 drop-shadow-[0_0_15px_rgba(0,0,0,1)]">
+                      <path d="M50 15 C54 15 57 19 57 23 C57 30 50 36 50 36 C50 36 43 30 43 23 C43 19 46 15 50 15 Z" />
+                      <path d="M42 42 L58 42 L62 75 L50 95 L38 75 Z" />
+                      <rect x="44" y="95" width="12" height="65" rx="3" />
+                      <path d="M38 42 Q32 50 39 70" stroke="#d4af37" strokeWidth="2.5" fill="none" />
+                      <path d="M62 42 Q68 50 61 70" stroke="#d4af37" strokeWidth="2.5" fill="none" />
+                      <rect x="35" y="165" width="30" height="20" rx="3" fill="#1a1a1a" />
+                      <rect x="30" y="185" width="40" height="15" rx="5" fill="#0c0c0c" />
+                      <rect x="49" y="48" width="2" height="110" fill="#d4af37" opacity="0.8" />
+                      <path d="M54 20 L55 22" stroke="white" strokeWidth="1" opacity="0.3" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-black/40 pointer-events-none"></div>
+          </div>
+
+          <div className="max-w-md w-full px-4 text-center">
+            <h2 className="text-2xl md:text-3xl font-serif font-bold text-white mb-4">A grande premiação all faces 🥬</h2>
+            
+            <div className="space-y-4 text-gray-400 mb-8 text-sm md:text-base">
+              <p>Indique seus colegas favoritos e ajude a celebrar quem faz a diferença no nosso dia a dia.</p>
+              
+              <div className="flex justify-center gap-8 text-[10px] uppercase tracking-widest font-black text-[#d4af37]">
+                <span className="flex flex-col">
+                  <span className="text-white/40 mb-1">⏱️ Duração</span>
+                  <span>&lt; 3 minutos</span>
+                </span>
+                <span className="flex flex-col">
+                  <span className="text-white/40 mb-1">🤫 Voto</span>
+                  <span>Sigiloso</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Formulário de Identificação */}
+            <div className="space-y-4 mb-8">
+              <div className="text-left">
+                <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black mb-2">
+                  Identifique-se para continuar
+                </label>
                 
-                // Validação básica de e-mail
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(voterEmail.trim())) {
-                    setIdentificationError('Por favor, digite um e-mail válido.');
-                    return;
-                }
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={voterName}
+                    onChange={(e) => setVoterName(e.target.value)}
+                    placeholder="Seu nome completo..."
+                    className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-700"
+                  />
+                  
+                  <input
+                    type="email"
+                    value={voterEmail}
+                    onChange={(e) => setVoterEmail(e.target.value)}
+                    placeholder="Seu e-mail corporativo..."
+                    className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-700"
+                  />
+                </div>
                 
-                // Salva identificação no localStorage
-                localStorage.setItem('cs-awards-voter-name', voterName.trim());
-                localStorage.setItem('cs-awards-voter-email', voterEmail.trim());
+                {identificationError && (
+                  <p className="text-red-500 text-xs font-bold mt-2 flex items-center gap-2 animate-pulse">
+                    <span>⚠️</span> {identificationError}
+                  </p>
+                )}
                 
-                setIdentificationError('');
-                setStep('nominating');
-            };
+                <p className="mt-3 text-[9px] text-gray-600 italic text-center">
+                  Seus dados são usados apenas para controle interno e não serão compartilhados.
+                </p>
+              </div>
+            </div>
 
-            const handleAdminLogin = () => {
-                if (adminPassword === CONFIG.ADMIN_PASSWORD) {
-                    setIsAdminAuthenticated(true);
-                    setShowAdminLogin(false);
-                    setAdminPassword('');
-                    sessionStorage.setItem('cs-admin-auth', 'true');
-                } else {
-                    alert('Senha incorreta!');
-                    setAdminPassword('');
-                }
-            };
-
-            const handleAdminLogout = () => {
-                setIsAdminAuthenticated(false);
-                sessionStorage.removeItem('cs-admin-auth');
-            };
-
-            useEffect(() => {
-                const isAuth = sessionStorage.getItem('cs-admin-auth') === 'true';
-                setIsAdminAuthenticated(isAuth);
-            }, []);
-
-            useEffect(() => {
-                if (!isAskingReason && nomineeName.trim()) {
-                    const normalizedName = nomineeName.trim().toLowerCase();
-                    const normalizedVoterName = voterName.trim().toLowerCase();
-                    
-                    if (normalizedName === 'não') {
-                        setValidationError('');
-                        return;
-                    }
-
-                    // Verifica se a pessoa está tentando se indicar
-                    if (normalizedName === normalizedVoterName) {
-                        setValidationError('Você não pode indicar a si mesmo(a)!');
-                        return;
-                    }
-
-                    const alreadyNominated = allNominations.some(
-                        n => n.categoryId === currentCategory.id && 
-                        n.nomineeName.toLowerCase() === normalizedName
-                    );
-
-                    if (alreadyNominated) {
-                        setValidationError('Esta pessoa já foi indicada por você nesta categoria!');
-                    } else {
-                        setValidationError('');
-                    }
-                } else {
-                    setValidationError('');
-                }
-            }, [nomineeName, currentCategory.id, allNominations, isAskingReason, voterName]);
-
-            const handleReset = () => {
-                setStep('welcome');
-                setCurrentCategoryIndex(0);
-                setIsAskingReason(false);
-                setNomineeName('');
-                setReason('');
-                setValidationError('');
-            };
-
-            const handleNext = async () => {
-                if (validationError) return;
-
-                const isLastCategory = currentCategoryIndex === CATEGORIES.length - 1;
-
-                if (nomineeName.trim().toUpperCase() === 'NÃO') {
-                    if (isLastCategory) {
-                        setStep('finished');
-                    } else {
-                        setCurrentCategoryIndex(prev => prev + 1);
-                        setNomineeName('');
-                        setReason('');
-                        setIsAskingReason(false);
-                    }
-                    return;
-                }
-
-                if (!isAskingReason) {
-                    if (!nomineeName.trim()) return;
-                    setIsAskingReason(true);
-                } else {
-                    setIsSubmitting(true);
-                    
-                    const newNomination = {
-                        categoryId: currentCategory.id,
-                        categoryName: currentCategory.movieReference,
-                        nomineeName: nomineeName.trim(),
-                        reason: reason.trim() || undefined,
-                        timestamp: new Date().toISOString(),
-                        voterName: voterName.trim(),
-                        voterEmail: voterEmail.trim()
-                    };
-
-                    // Salva localmente primeiro
-                    const updatedNominations = [...allNominations, newNomination];
-                    setAllNominations(updatedNominations);
-                    localStorage.setItem('cs-awards-nominations', JSON.stringify(updatedNominations));
-
-                    // Envia para Google Sheets
-                    const result = await sendToGoogleSheets(newNomination);
-                    
-                    if (!result.success) {
-                        console.error('Erro ao salvar no Google Sheets:', result.message);
-                        // Continua mesmo se falhar - dados ficam salvos localmente
-                    }
-
-                    setIsSubmitting(false);
-                    setShowSuccessMark(true);
-
-                    setTimeout(() => {
-                        setShowSuccessMark(false);
-                        if (isLastCategory) {
-                            setStep('finished');
-                        } else {
-                            setCurrentCategoryIndex(prev => prev + 1);
-                            setNomineeName('');
-                            setReason('');
-                            setIsAskingReason(false);
-                        }
-                    }, 1000);
-                }
-            };
-
-            const exportToCSV = async () => {
-                if (!isAdminAuthenticated) {
-                    alert("Acesso negado! Apenas administradores podem exportar dados.");
-                    return;
-                }
-
-                // Tenta buscar dados do Google Sheets primeiro
-                const sheetsResult = await getFromGoogleSheets();
-                let dataToExport = allNominations;
-
-                if (sheetsResult.success && sheetsResult.data.length > 0) {
-                    // Usa dados do Google Sheets se disponível
-                    dataToExport = sheetsResult.data.map(row => ({
-                        voterName: row.Votante || row.voterName,
-                        voterEmail: row.Email || row.voterEmail,
-                        categoryName: row.Categoria || row.categoryName,
-                        nomineeName: row.Indicado || row.nomineeName,
-                        reason: row.Motivo || row.reason,
-                        timestamp: row.Timestamp || row.timestamp
-                    }));
-                }
-
-                if (dataToExport.length === 0) {
-                    alert("Nenhuma indicação para exportar.");
-                    return;
-                }
-
-                const headers = ["Votante", "Email", "Categoria", "Indicado", "Motivo", "Data/Hora"];
-                const rows = dataToExport.map(n => [
-                    `"${n.voterName || 'N/A'}"`,
-                    `"${n.voterEmail || 'N/A'}"`,
-                    `"${n.categoryName || 'N/A'}"`,
-                    `"${n.nomineeName || 'N/A'}"`,
-                    `"${n.reason || ''}"`,
-                    `"${n.timestamp ? new Date(n.timestamp).toLocaleString('pt-BR') : 'N/A'}"`
-                ]);
-
-                const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.setAttribute("href", url);
-                link.setAttribute("download", `${CONFIG.EXPORT_FILENAME_PREFIX}_${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            };
-
-            const clearAllData = async () => {
-                if (!isAdminAuthenticated) {
-                    alert("Acesso negado! Apenas administradores podem limpar dados.");
-                    return;
-                }
-
-                if (confirm("Tem certeza que deseja limpar todos os dados salvos? Esta ação não pode ser desfeita.")) {
-                    // Limpa dados locais
-                    localStorage.removeItem('cs-awards-nominations');
-                    setAllNominations([]);
-                    
-                    // Limpa dados do Google Sheets
-                    const result = await clearGoogleSheets(CONFIG.ADMIN_PASSWORD);
-                    
-                    if (result.success) {
-                        alert("Dados limpos com sucesso!");
-                    } else {
-                        alert("Dados locais limpos, mas houve erro ao limpar Google Sheets: " + result.message);
-                    }
-                }
-            };
-
-            return (
-                <Layout showHeader={step !== 'welcome'}>
-                    {step === 'welcome' && (
-                        <div className="flex flex-col items-center animate-fade-in">
-                            <div className="w-full relative bg-black rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,1)] border border-gray-900 mb-10 aspect-video flex items-center justify-center group">
-                                <div className="absolute inset-0 bg-gradient-to-br from-[#111] via-black to-[#050505] z-0"></div>
-                                
-                                <div className="relative z-10 flex w-full h-full items-center justify-between px-6 md:px-16">
-                                    <div className="flex flex-col items-start md:items-center justify-center flex-[1.5]">
-                                        <div className="flex gap-4 mb-2 md:mb-6">
-                                            <span className="text-[#d4af37] text-xl md:text-3xl rotate-45 animate-pulse">✦</span>
-                                            <span className="text-[#d4af37] text-3xl md:text-5xl -mt-4 animate-pulse delay-100">✦</span>
-                                            <span className="text-[#d4af37] text-xl md:text-3xl rotate-45 animate-pulse delay-200">✦</span>
-                                        </div>
-                                        <h1 className="text-8xl md:text-[11rem] font-serif font-medium text-[#d4af37] leading-[0.8] tracking-tighter uppercase mb-2">CS</h1>
-                                        <h2 className="text-3xl md:text-6xl font-serif font-light text-[#d4af37] tracking-[0.3em] uppercase">AWARDS</h2>
-                                    </div>
-                                    
-                                    <div className="flex-1 h-full flex items-center justify-center pr-4 md:pr-0">
-                                        <div className="h-[90%] w-auto relative drop-shadow-[0_0_40px_rgba(212,175,55,0.4)] hover:scale-105 transition-transform duration-700">
-                                            <svg viewBox="0 0 100 240" className="h-full w-full fill-[#d4af37] opacity-95 brightness-110 drop-shadow-[0_0_15px_rgba(0,0,0,1)]">
-                                                <path d="M50 15 C54 15 57 19 57 23 C57 30 50 36 50 36 C50 36 43 30 43 23 C43 19 46 15 50 15 Z" />
-                                                <path d="M42 42 L58 42 L62 75 L50 95 L38 75 Z" />
-                                                <rect x="44" y="95" width="12" height="65" rx="3" />
-                                                <path d="M38 42 Q32 50 39 70" stroke="#d4af37" strokeWidth="2.5" fill="none" />
-                                                <path d="M62 42 Q68 50 61 70" stroke="#d4af37" strokeWidth="2.5" fill="none" />
-                                                <rect x="35" y="165" width="30" height="20" rx="3" fill="#1a1a1a" />
-                                                <rect x="30" y="185" width="40" height="15" rx="5" fill="#0c0c0c" />
-                                                <rect x="49" y="48" width="2" height="110" fill="#d4af37" opacity="0.8" />
-                                                <path d="M54 20 L55 22" stroke="white" strokeWidth="1" opacity="0.3" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-black/40 pointer-events-none"></div>
-                            </div>
-
-                            <div className="max-w-md w-full px-4 text-center">
-                                <h2 className="text-2xl md:text-3xl font-serif font-bold text-white mb-4">{CONFIG.TEXTS.WELCOME_TITLE}</h2>
-                                
-                                <div className="space-y-4 text-gray-400 mb-8 text-sm md:text-base">
-                                    <p>{CONFIG.TEXTS.WELCOME_DESCRIPTION}</p>
-                                    
-                                    <div className="flex justify-center gap-8 text-[10px] uppercase tracking-widest font-black text-[#d4af37]">
-                                        <span className="flex flex-col">
-                                            <span className="text-white/40 mb-1">⏱️ Duração</span>
-                                            <span>&lt; 3 minutos</span>
-                                        </span>
-                                        <span className="flex flex-col">
-                                            <span className="text-white/40 mb-1">🤫 Voto</span>
-                                            <span>Sigiloso</span>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Formulário de Identificação */}
-                                <div className="space-y-4 mb-8">
-                                    <div className="text-left">
-                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black mb-2">
-                                            Identifique-se para continuar
-                                        </label>
-                                        
-                                        <div className="space-y-3">
-                                            <input
-                                                type="text"
-                                                value={voterName}
-                                                onChange={(e) => setVoterName(e.target.value)}
-                                                placeholder="Seu nome completo..."
-                                                className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-700"
-                                            />
-                                            
-                                            <input
-                                                type="email"
-                                                value={voterEmail}
-                                                onChange={(e) => setVoterEmail(e.target.value)}
-                                                placeholder="Seu e-mail corporativo..."
-                                                className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-700"
-                                            />
-                                        </div>
-                                        
-                                        {identificationError && (
-                                            <p className="text-red-500 text-xs font-bold mt-2 flex items-center gap-2 animate-pulse">
-                                                <span>⚠️</span> {identificationError}
-                                            </p>
-                                        )}
-                                        
-                                        <p className="mt-3 text-[9px] text-gray-600 italic text-center">
-                                            Seus dados são salvos automaticamente no Google Sheets para controle interno.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <button 
-                                    onClick={handleStart}
-                                    className="w-full py-5 oscar-bg-gold text-black font-black uppercase tracking-[0.2em] rounded-xl hover:scale-[1.03] hover:shadow-[0_0_40px_rgba(212,175,55,0.4)] active:scale-95 transition-all duration-300 shadow-2xl text-lg"
-                                >
-                                    Vamos começar?
-                                </button>
-                                
-                                {/* Atalho Administrativo Discreto */}
-                                <div className="mt-8 pt-6 border-t border-gray-900/30">
-                                    {!isAdminAuthenticated ? (
-                                        <div className="space-y-4">
-                                            {!showAdminLogin ? (
-                                                <button
-                                                    onClick={() => setShowAdminLogin(true)}
-                                                    className="w-full py-3 bg-gray-950/50 text-gray-600 text-[9px] font-bold uppercase tracking-[0.4em] rounded-lg hover:text-gray-400 hover:bg-gray-900/50 transition-all flex items-center justify-center gap-3"
-                                                >
-                                                    <span>🔐</span> Acesso Rápido Admin
-                                                </button>
-                                            ) : (
-                                                <div className="bg-gray-950/80 p-4 rounded-xl border border-gray-800/50 space-y-3">
-                                                    <div className="text-center">
-                                                        <h3 className="text-[#d4af37] font-black text-xs uppercase tracking-widest mb-1">
-                                                            🔐 Admin
-                                                        </h3>
-                                                        <p className="text-gray-500 text-[10px]">
-                                                            Acesso rápido para exportação
-                                                        </p>
-                                                    </div>
-                                                    
-                                                    <div className="space-y-2">
-                                                        <input
-                                                            type="password"
-                                                            value={adminPassword}
-                                                            onChange={(e) => setAdminPassword(e.target.value)}
-                                                            onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
-                                                            placeholder="Senha..."
-                                                            className="w-full bg-black/60 border border-gray-700 focus:border-[#d4af37] text-white p-3 rounded-lg outline-none transition-all text-xs placeholder:text-gray-700"
-                                                            autoFocus
-                                                        />
-                                                        
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setShowAdminLogin(false);
-                                                                    setAdminPassword('');
-                                                                }}
-                                                                className="flex-1 py-2 border border-gray-700 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-md hover:bg-gray-900 transition-all"
-                                                            >
-                                                                Cancelar
-                                                            </button>
-                                                            <button
-                                                                onClick={handleAdminLogin}
-                                                                disabled={!adminPassword.trim()}
-                                                                className={`flex-[2] py-2 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${
-                                                                    adminPassword.trim()
-                                                                        ? 'oscar-bg-gold text-black hover:scale-[1.02]'
-                                                                        : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                                                }`}
-                                                            >
-                                                                Entrar
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            <div className="bg-green-950/20 border border-green-800/30 p-3 rounded-lg">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-green-400 text-sm">✓</span>
-                                                        <div>
-                                                            <p className="text-green-400 font-bold text-[10px] uppercase tracking-widest">
-                                                                Admin Logado
-                                                            </p>
-                                                            <p className="text-green-300/70 text-[9px]">
-                                                                Acesso liberado
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        onClick={handleAdminLogout}
-                                                        className="text-green-300/50 hover:text-green-300 text-[10px] underline"
-                                                    >
-                                                        Sair
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex flex-col gap-2">
-                                                <button
-                                                    onClick={exportToCSV}
-                                                    className="w-full py-3 oscar-bg-gold text-black text-[9px] font-black uppercase tracking-[0.4em] rounded-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-3 shadow-lg"
-                                                >
-                                                    <span>📥</span> Exportar CSV - Google Sheets
-                                                </button>
-                                                
-                                                <button
-                                                    onClick={clearAllData}
-                                                    className="w-full py-2 bg-red-950/50 text-red-400 text-[8px] font-black uppercase tracking-[0.4em] rounded-lg hover:text-red-300 hover:bg-red-900/50 transition-all flex items-center justify-center gap-2"
-                                                >
-                                                    <span>🗑️</span> Limpar Dados
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                    
-                                    <p className="mt-3 text-[8px] text-gray-800 uppercase tracking-widest font-bold text-center">
-                                        {isAdminAuthenticated ? 'Painel Admin Ativo' : 'Apenas para administradores'}
-                                    </p>
-                                </div>
-                            </div>
+            <button 
+              onClick={handleStart}
+              className="w-full py-5 oscar-bg-gold text-black font-black uppercase tracking-[0.2em] rounded-xl hover:scale-[1.03] hover:shadow-[0_0_40px_rgba(212,175,55,0.4)] active:scale-95 transition-all duration-300 shadow-2xl text-lg"
+            >
+              Vamos começar?
+            </button>
+            
+            {/* Atalho Administrativo Discreto */}
+            <div className="mt-8 pt-6 border-t border-gray-900/30">
+              {!isAdminAuthenticated ? (
+                <div className="space-y-4">
+                  {!showAdminLogin ? (
+                    <button
+                      onClick={() => setShowAdminLogin(true)}
+                      className="w-full py-3 bg-gray-950/50 text-gray-600 text-[9px] font-bold uppercase tracking-[0.4em] rounded-lg hover:text-gray-400 hover:bg-gray-900/50 transition-all flex items-center justify-center gap-3"
+                    >
+                      <span>🔐</span> Acesso Rápido Admin
+                    </button>
+                  ) : (
+                    <div className="bg-gray-950/80 p-4 rounded-xl border border-gray-800/50 space-y-3">
+                      <div className="text-center">
+                        <h3 className="text-[#d4af37] font-black text-xs uppercase tracking-widest mb-1">
+                          🔐 Admin
+                        </h3>
+                        <p className="text-gray-500 text-[10px]">
+                          Acesso rápido para exportação
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <input
+                          type="password"
+                          value={adminPassword}
+                          onChange={(e) => setAdminPassword(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+                          placeholder="Senha..."
+                          className="w-full bg-black/60 border border-gray-700 focus:border-[#d4af37] text-white p-3 rounded-lg outline-none transition-all text-xs placeholder:text-gray-700"
+                          autoFocus
+                        />
+                        
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setShowAdminLogin(false);
+                              setAdminPassword('');
+                            }}
+                            className="flex-1 py-2 border border-gray-700 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-md hover:bg-gray-900 transition-all"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={handleAdminLogin}
+                            disabled={!adminPassword.trim()}
+                            className={`flex-[2] py-2 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${
+                              adminPassword.trim()
+                                ? 'oscar-bg-gold text-black hover:scale-[1.02]'
+                                : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                            }`}
+                          >
+                            Entrar
+                          </button>
                         </div>
-                    )}
-
-                    {step === 'nominating' && (
-                        <div className="animate-fade-in relative min-h-[420px]">
-                            {(showSuccessMark || isSubmitting) && (
-                                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in rounded-2xl border border-[#d4af37]/30">
-                                    <div className="w-24 h-24 rounded-full border-4 border-[#d4af37] flex items-center justify-center animate-bounce mb-6 shadow-[0_0_30px_rgba(212,175,55,0.4)]">
-                                        {isSubmitting ? (
-                                            <div className="w-8 h-8 border-4 border-[#d4af37] border-t-transparent rounded-full animate-spin"></div>
-                                        ) : (
-                                            <span className="text-5xl text-[#d4af37]">✓</span>
-                                        )}
-                                    </div>
-                                    <p className="text-[#d4af37] font-black uppercase tracking-[0.3em] text-sm">
-                                        {isSubmitting ? 'Salvando no Google Sheets...' : 'Voto Computado!'}
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="flex justify-between items-center mb-10">
-                                <div className="flex flex-col">
-                                    <span className="text-[#d4af37] font-black text-[9px] uppercase tracking-[0.3em] mb-1">Progresso da Indicação</span>
-                                    <span className="text-white font-serif text-sm">Categoria {currentCategoryIndex + 1} de {CATEGORIES.length}</span>
-                                </div>
-                                <div className="h-1.5 w-32 md:w-48 bg-gray-900 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full oscar-bg-gold transition-all duration-700 cubic-bezier(0.4, 0, 0.2, 1)" 
-                                        style={{ width: `${((currentCategoryIndex + (isAskingReason ? 0.5 : 0)) / CATEGORIES.length) * 100}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-
-                            {!isAskingReason ? (
-                                <div className="space-y-10">
-                                    <div className="space-y-6">
-                                        <div className="oscar-bg-gold/5 border-l-4 border-[#d4af37] p-6 rounded-r-xl shadow-lg">
-                                            <h3 className="text-[#d4af37] font-serif font-black text-2xl md:text-3xl leading-tight">
-                                                {currentCategory.movieReference}
-                                            </h3>
-                                        </div>
-                                        <p className="text-gray-400 text-sm md:text-lg leading-relaxed font-light px-2">
-                                            {currentCategory.description}
-                                        </p>
-                                    </div>
-
-                                    <div className="space-y-4 pt-4">
-                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">
-                                            Quem merece este reconhecimento?
-                                        </label>
-                                        
-                                        <div className="relative group">
-                                            <input
-                                                autoFocus
-                                                type="text"
-                                                value={nomineeName}
-                                                onChange={(e) => setNomineeName(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleNext()}
-                                                placeholder="Nome completo do indicado..."
-                                                className={`w-full bg-black/60 border-2 text-white p-5 rounded-2xl outline-none transition-all duration-300 text-xl font-medium placeholder:text-gray-800 ${
-                                                    validationError 
-                                                        ? 'border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.2)]' 
-                                                        : 'border-gray-800 focus:border-[#d4af37] focus:bg-black/80'
-                                                }`}
-                                            />
-                                            
-                                            {validationError && (
-                                                <p className="text-red-500 text-xs font-bold mt-2 flex items-center gap-2 animate-pulse">
-                                                    <span>⚠️</span> {validationError}
-                                                </p>
-                                            )}
-                                            
-                                            <p className="mt-3 text-[10px] text-gray-600 italic">
-                                                Ou digite "NÃO" para pular esta categoria.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        disabled={!nomineeName.trim() || !!validationError || showSuccessMark || isSubmitting}
-                                        onClick={handleNext}
-                                        className={`w-full py-5 font-black uppercase tracking-[0.25em] rounded-xl transition-all duration-500 shadow-2xl text-sm ${
-                                            !nomineeName.trim() || !!validationError || showSuccessMark || isSubmitting
-                                                ? 'bg-gray-950 text-gray-800 cursor-not-allowed opacity-40'
-                                                : 'oscar-bg-gold text-black hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(212,175,55,0.3)] active:scale-[0.98]'
-                                        }`}
-                                    >
-                                        {nomineeName.trim().toUpperCase() === 'NÃO' ? 'Pular Categoria' : 'Continuar'}
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="space-y-10 animate-fade-in">
-                                    <div className="bg-gradient-to-br from-[#1a1a1a] to-black p-8 rounded-2xl border border-white/5 shadow-2xl">
-                                        <p className="text-[10px] text-gray-600 uppercase tracking-widest font-black mb-2">
-                                            Indicado para o prêmio:
-                                        </p>
-                                        <p className="text-3xl font-serif font-black text-[#d4af37] uppercase tracking-wider underline underline-offset-8 decoration-1 decoration-[#d4af37]/30">
-                                            {nomineeName}
-                                        </p>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">
-                                            Justificativa (Opcional - Máx 140 chars)
-                                        </label>
-                                        
-                                        <div className="relative">
-                                            <textarea
-                                                autoFocus
-                                                maxLength={140}
-                                                value={reason}
-                                                onChange={(e) => setReason(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleNext()}
-                                                placeholder="Por que essa indicação? Conte-nos um pouco..."
-                                                className="w-full h-44 bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-6 rounded-2xl outline-none transition-all resize-none text-lg font-light leading-relaxed placeholder:text-gray-800"
-                                            />
-                                            <div className={`absolute bottom-5 right-6 text-[11px] font-black tracking-widest ${
-                                                reason.length >= 130 ? 'text-red-500' : 'text-gray-700'
-                                            }`}>
-                                                {reason.length} / 140
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col md:flex-row gap-4">
-                                        <button
-                                            disabled={showSuccessMark || isSubmitting}
-                                            onClick={() => setIsAskingReason(false)}
-                                            className="flex-1 py-5 border-2 border-gray-800 text-gray-600 font-bold uppercase tracking-widest rounded-xl hover:bg-gray-900 transition-all text-xs"
-                                        >
-                                            Alterar Nome
-                                        </button>
-                                        <button
-                                            disabled={showSuccessMark || isSubmitting}
-                                            onClick={handleNext}
-                                            className="flex-[2] py-5 oscar-bg-gold text-black font-black uppercase tracking-[0.25em] rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-500 shadow-2xl text-sm"
-                                        >
-                                            {isSubmitting ? 'Salvando...' : 'Confirmar Voto'}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-green-950/20 border border-green-800/30 p-3 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-400 text-sm">✓</span>
+                        <div>
+                          <p className="text-green-400 font-bold text-[10px] uppercase tracking-widest">
+                            Admin Logado
+                          </p>
+                          <p className="text-green-300/70 text-[9px]">
+                            Acesso liberado
+                          </p>
                         </div>
-                    )}
+                      </div>
+                      <button
+                        onClick={handleAdminLogout}
+                        className="text-green-300/50 hover:text-green-300 text-[10px] underline"
+                      >
+                        Sair
+                      </button>
+                    </div>
+                  </div>
 
-                    {step === 'finished' && (
-                        <div className="flex flex-col items-center text-center animate-fade-in py-16">
-                            <div className="relative mb-10">
-                                <div className="absolute inset-0 bg-[#d4af37] blur-[60px] opacity-25 rounded-full animate-pulse"></div>
-                                <div className="text-9xl relative z-10 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]">🏆</div>
-                            </div>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={exportToCSV}
+                      className="w-full py-3 oscar-bg-gold text-black text-[9px] font-black uppercase tracking-[0.4em] rounded-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-3 shadow-lg"
+                    >
+                      <span>📥</span> Exportar CSV - Google Sheets
+                    </button>
+                    
+                    <button
+                      onClick={clearAllData}
+                      className="w-full py-2 bg-red-950/50 text-red-400 text-[8px] font-black uppercase tracking-[0.4em] rounded-lg hover:text-red-300 hover:bg-red-900/50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <span>🗑️</span> Limpar Dados
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              <p className="mt-3 text-[8px] text-gray-800 uppercase tracking-widest font-bold text-center">
+                {isAdminAuthenticated ? 'Painel Admin Ativo' : 'Apenas para administradores'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
-                            <h2 className="text-4xl md:text-5xl font-serif font-black text-white mb-6 uppercase tracking-tighter">
-                                Votação Finalizada!
-                            </h2>
-                            
-                            <p className="text-gray-400 mb-14 text-sm md:text-lg font-light leading-relaxed max-w-sm">
-                                Seus votos foram registrados no tapete vermelho e salvos automaticamente no Google Sheets. <br />
-                                {CONFIG.TEXTS.CEREMONY_MESSAGE} <strong className="text-[#d4af37] font-bold">{CONFIG.CEREMONY_DATE}</strong>!
-                            </p>
+      {step === 'nominating' && (
+        <div className="animate-fade-in relative min-h-[420px]">
+          {showSuccessMark && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in rounded-2xl border border-[#d4af37]/30">
+              <div className="w-24 h-24 rounded-full border-4 border-[#d4af37] flex items-center justify-center animate-bounce mb-6 shadow-[0_0_30px_rgba(212,175,55,0.4)]">
+                <span className="text-5xl text-[#d4af37]">✓</span>
+              </div>
+              <p className="text-[#d4af37] font-black uppercase tracking-[0.3em] text-sm">Voto Computado!</p>
+            </div>
+          )}
 
-                            <div className="w-full space-y-6">
-                                <button
-                                    onClick={handleReset}
-                                    className="w-full py-5 border-2 border-[#d4af37]/40 text-[#d4af37] font-black uppercase tracking-[0.3em] rounded-xl hover:bg-[#d4af37]/10 hover:border-[#d4af37] transition-all active:scale-[0.98] text-sm"
-                                >
-                                    Indicar outra pessoa
-                                </button>
+          <div className="flex justify-between items-center mb-10">
+            <div className="flex flex-col">
+              <span className="text-[#d4af37] font-black text-[9px] uppercase tracking-[0.3em] mb-1">Progresso da Indicação</span>
+              <span className="text-white font-serif text-sm">Categoria {currentCategoryIndex + 1} de {CATEGORIES.length}</span>
+            </div>
+            <div className="h-1.5 w-32 md:w-48 bg-gray-900 rounded-full overflow-hidden">
+              <div 
+                className="h-full oscar-bg-gold transition-all duration-700 cubic-bezier(0.4, 0, 0.2, 1)" 
+                style={{ width: `${((currentCategoryIndex + (isAskingReason ? 0.5 : 0)) / CATEGORIES.length) * 100}%` }}
+              ></div>
+            </div>
+          </div>
 
-                                <div className="pt-16 border-t border-gray-900 space-y-4">
-                                    {!isAdminAuthenticated ? (
-                                        <div className="space-y-4">
-                                            {!showAdminLogin ? (
-                                                <button
-                                                    onClick={() => setShowAdminLogin(true)}
-                                                    className="w-full py-4 bg-gray-950 text-gray-700 text-[10px] font-black uppercase tracking-[0.5em] rounded-xl hover:text-white hover:bg-gray-900 transition-all flex items-center justify-center gap-4"
-                                                >
-                                                    <span>🔐</span> Acesso Administrativo
-                                                </button>
-                                            ) : (
-                                                <div className="bg-gray-950 p-6 rounded-xl border border-gray-800 space-y-4">
-                                                    <div className="text-center">
-                                                        <h3 className="text-[#d4af37] font-black text-sm uppercase tracking-widest mb-2">
-                                                            🔐 Login Administrativo
-                                                        </h3>
-                                                        <p className="text-gray-500 text-xs">
-                                                            Digite a senha para acessar funcionalidades administrativas
-                                                        </p>
-                                                    </div>
-                                                    
-                                                    <div className="space-y-3">
-                                                        <input
-                                                            type="password"
-                                                            value={adminPassword}
-                                                            onChange={(e) => setAdminPassword(e.target.value)}
-                                                            onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
-                                                            placeholder="Senha de administrador..."
-                                                            className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-700"
-                                                            autoFocus
-                                                        />
-                                                        
-                                                        <div className="flex gap-3">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setShowAdminLogin(false);
-                                                                    setAdminPassword('');
-                                                                }}
-                                                                className="flex-1 py-3 border border-gray-700 text-gray-500 text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-gray-900 transition-all"
-                                                            >
-                                                                Cancelar
-                                                            </button>
-                                                            <button
-                                                                onClick={handleAdminLogin}
-                                                                disabled={!adminPassword.trim()}
-                                                                className={`flex-[2] py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${
-                                                                    adminPassword.trim()
-                                                                        ? 'oscar-bg-gold text-black hover:scale-[1.02]'
-                                                                        : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                                                }`}
-                                                            >
-                                                                Entrar
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            <div className="bg-green-950/30 border border-green-800/50 p-4 rounded-xl">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-green-400 text-lg">✓</span>
-                                                        <div>
-                                                            <p className="text-green-400 font-bold text-xs uppercase tracking-widest">
-                                                                Administrador Autenticado
-                                                            </p>
-                                                            <p className="text-green-300/70 text-[10px]">
-                                                                Dados sincronizados com Google Sheets
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        onClick={handleAdminLogout}
-                                                        className="text-green-300/50 hover:text-green-300 text-xs underline"
-                                                    >
-                                                        Sair
-                                                    </button>
-                                                </div>
-                                            </div>
+          {!isAskingReason ? (
+            <div className="space-y-10">
+              <div className="space-y-6">
+                <div className="oscar-bg-gold/5 border-l-4 border-[#d4af37] p-6 rounded-r-xl shadow-lg">
+                  <h3 className="text-[#d4af37] font-serif font-black text-2xl md:text-3xl leading-tight">
+                    {currentCategory.movieReference}
+                  </h3>
+                </div>
+                <p className="text-gray-400 text-sm md:text-lg leading-relaxed font-light px-2">
+                  {currentCategory.description}
+                </p>
+              </div>
 
-                                            <div className="flex flex-col gap-3">
-                                                <button
-                                                    onClick={exportToCSV}
-                                                    className="w-full py-4 oscar-bg-gold text-black text-[10px] font-black uppercase tracking-[0.5em] rounded-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-4 shadow-lg"
-                                                >
-                                                    <span>📥</span> Extrair Dados (CSV) - Google Sheets
-                                                </button>
-                                                
-                                                <button
-                                                    onClick={clearAllData}
-                                                    className="w-full py-3 bg-red-950 text-red-400 text-[9px] font-black uppercase tracking-[0.5em] rounded-xl hover:text-red-300 hover:bg-red-900 transition-all flex items-center justify-center gap-3"
-                                                >
-                                                    <span>🗑️</span> Limpar Todos os Dados
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                    
-                                    <p className="mt-4 text-[9px] text-gray-800 uppercase tracking-widest font-bold text-center">
-                                        {isAdminAuthenticated ? 'Dados sincronizados com Google Sheets' : 'Dados salvos automaticamente'}
-                                    </p>
-                                </div>
-                            </div>
+              <div className="space-y-4 pt-4">
+                <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">
+                  Quem merece este reconhecimento?
+                </label>
+                
+                <div className="relative group">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={nomineeName}
+                    onChange={(e) => setNomineeName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleNext()}
+                    placeholder="Nome completo do indicado..."
+                    className={`w-full bg-black/60 border-2 text-white p-5 rounded-2xl outline-none transition-all duration-300 text-xl font-medium placeholder:text-gray-800 ${
+                      validationError 
+                        ? 'border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.2)]' 
+                        : 'border-gray-800 focus:border-[#d4af37] focus:bg-black/80'
+                    }`}
+                  />
+                  
+                  {validationError && (
+                    <p className="text-red-500 text-xs font-bold mt-2 flex items-center gap-2 animate-pulse">
+                      <span>⚠️</span> {validationError}
+                    </p>
+                  )}
+                  
+                  <p className="mt-3 text-[10px] text-gray-600 italic">
+                    Ou digite "NÃO" para pular esta categoria.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                disabled={!nomineeName.trim() || !!validationError || showSuccessMark}
+                onClick={handleNext}
+                className={`w-full py-5 font-black uppercase tracking-[0.25em] rounded-xl transition-all duration-500 shadow-2xl text-sm ${
+                  !nomineeName.trim() || !!validationError || showSuccessMark
+                    ? 'bg-gray-950 text-gray-800 cursor-not-allowed opacity-40'
+                    : 'oscar-bg-gold text-black hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(212,175,55,0.3)] active:scale-[0.98]'
+                }`}
+              >
+                {nomineeName.trim().toUpperCase() === 'NÃO' ? 'Pular Categoria' : 'Continuar'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-10 animate-fade-in">
+              <div className="bg-gradient-to-br from-[#1a1a1a] to-black p-8 rounded-2xl border border-white/5 shadow-2xl">
+                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-black mb-2">
+                  Indicado para o prêmio:
+                </p>
+                <p className="text-3xl font-serif font-black text-[#d4af37] uppercase tracking-wider underline underline-offset-8 decoration-1 decoration-[#d4af37]/30">
+                  {nomineeName}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">
+                  Justificativa (Opcional - Máx 140 chars)
+                </label>
+                
+                <div className="relative">
+                  <textarea
+                    autoFocus
+                    maxLength={140}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleNext()}
+                    placeholder="Por que essa indicação? Conte-nos um pouco..."
+                    className="w-full h-44 bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-6 rounded-2xl outline-none transition-all resize-none text-lg font-light leading-relaxed placeholder:text-gray-800"
+                  />
+                  <div className={`absolute bottom-5 right-6 text-[11px] font-black tracking-widest ${
+                    reason.length >= 130 ? 'text-red-500' : 'text-gray-700'
+                  }`}>
+                    {reason.length} / 140
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-4">
+                <button
+                  disabled={showSuccessMark}
+                  onClick={() => setIsAskingReason(false)}
+                  className="flex-1 py-5 border-2 border-gray-800 text-gray-600 font-bold uppercase tracking-widest rounded-xl hover:bg-gray-900 transition-all text-xs"
+                >
+                  Alterar Nome
+                </button>
+                <button
+                  disabled={showSuccessMark}
+                  onClick={handleNext}
+                  className="flex-[2] py-5 oscar-bg-gold text-black font-black uppercase tracking-[0.25em] rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-500 shadow-2xl text-sm"
+                >
+                  Confirmar Voto
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 'finished' && (
+        <div className="flex flex-col items-center text-center animate-fade-in py-16">
+          <div className="relative mb-10">
+            <div className="absolute inset-0 bg-[#d4af37] blur-[60px] opacity-25 rounded-full animate-pulse"></div>
+            <div className="text-9xl relative z-10 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]">🏆</div>
+          </div>
+
+          <h2 className="text-4xl md:text-5xl font-serif font-black text-white mb-6 uppercase tracking-tighter">
+            Votação Finalizada!
+          </h2>
+          
+          <p className="text-gray-400 mb-14 text-sm md:text-lg font-light leading-relaxed max-w-sm">
+            Seus votos foram registrados no tapete vermelho. <br />
+            Nos vemos na cerimônia oficial em <strong className="text-[#d4af37] font-bold">12 de fevereiro de 2026</strong>!
+          </p>
+
+          <div className="w-full space-y-6">
+            <button
+              onClick={handleReset}
+              className="w-full py-5 border-2 border-[#d4af37]/40 text-[#d4af37] font-black uppercase tracking-[0.3em] rounded-xl hover:bg-[#d4af37]/10 hover:border-[#d4af37] transition-all active:scale-[0.98] text-sm"
+            >
+              Indicar outra pessoa
+            </button>
+
+            <div className="pt-16 border-t border-gray-900 space-y-4">
+              {!isAdminAuthenticated ? (
+                <div className="space-y-4">
+                  {!showAdminLogin ? (
+                    <button
+                      onClick={() => setShowAdminLogin(true)}
+                      className="w-full py-4 bg-gray-950 text-gray-700 text-[10px] font-black uppercase tracking-[0.5em] rounded-xl hover:text-white hover:bg-gray-900 transition-all flex items-center justify-center gap-4"
+                    >
+                      <span>🔐</span> Acesso Administrativo
+                    </button>
+                  ) : (
+                    <div className="bg-gray-950 p-6 rounded-xl border border-gray-800 space-y-4">
+                      <div className="text-center">
+                        <h3 className="text-[#d4af37] font-black text-sm uppercase tracking-widest mb-2">
+                          � Login Administrativo
+                        </h3>
+                        <p className="text-gray-500 text-xs">
+                          Digite a senha para acessar funcionalidades administrativas
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <input
+                          type="password"
+                          value={adminPassword}
+                          onChange={(e) => setAdminPassword(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+                          placeholder="Senha de administrador..."
+                          className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-700"
+                          autoFocus
+                        />
+                        
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => {
+                              setShowAdminLogin(false);
+                              setAdminPassword('');
+                            }}
+                            className="flex-1 py-3 border border-gray-700 text-gray-500 text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-gray-900 transition-all"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={handleAdminLogin}
+                            disabled={!adminPassword.trim()}
+                            className={`flex-[2] py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${
+                              adminPassword.trim()
+                                ? 'oscar-bg-gold text-black hover:scale-[1.02]'
+                                : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                            }`}
+                          >
+                            Entrar
+                          </button>
                         </div>
-                    )}
-                </Layout>
-            );
-        };
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-green-950/30 border border-green-800/50 p-4 rounded-xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-green-400 text-lg">✓</span>
+                        <div>
+                          <p className="text-green-400 font-bold text-xs uppercase tracking-widest">
+                            Administrador Autenticado
+                          </p>
+                          <p className="text-green-300/70 text-[10px]">
+                            Acesso liberado para funcionalidades administrativas
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleAdminLogout}
+                        className="text-green-300/50 hover:text-green-300 text-xs underline"
+                      >
+                        Sair
+                      </button>
+                    </div>
+                  </div>
 
-        // Render the app
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
-</body>
-</html>
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={exportToCSV}
+                      className="w-full py-4 oscar-bg-gold text-black text-[10px] font-black uppercase tracking-[0.5em] rounded-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-4 shadow-lg"
+                    >
+                      <span>📥</span> Extrair Dados (CSV) - {allNominations.length} indicações
+                    </button>
+                    
+                    <button
+                      onClick={clearAllData}
+                      className="w-full py-3 bg-red-950 text-red-400 text-[9px] font-black uppercase tracking-[0.5em] rounded-xl hover:text-red-300 hover:bg-red-900 transition-all flex items-center justify-center gap-3"
+                    >
+                      <span>🗑️</span> Limpar Todos os Dados
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              <p className="mt-4 text-[9px] text-gray-800 uppercase tracking-widest font-bold text-center">
+                {isAdminAuthenticated ? 'Painel Administrativo Ativo' : 'Uso restrito ao RH / Organizadores'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </Layout>
+  );
+};
+
+export default App;
