@@ -47,8 +47,8 @@
             // URL DO GOOGLE APPS SCRIPT CONFIGURADA
             GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwl05iP86BTWMko6SzTOzLmYnP97KyXd4pMRWSAfXUZeadEIEcMTo_Ajf74hsZJXLGv/exec',
             TEXTS: {
-                WELCOME_TITLE: 'A grande premiação all faces 🥬',
-                WELCOME_DESCRIPTION: 'Indique seus colegas favoritos e ajude a celebrar quem faz a diferença no nosso dia a dia.',
+                WELCOME_TITLE: 'A grande premiação de CS Awards - All Faces',
+                WELCOME_DESCRIPTION: 'Vem ai, primeira edição para reconheremos nossos colegas de uma forma muito divertida.',
                 CEREMONY_MESSAGE: 'Nos vemos na cerimônia oficial em'
             }
         };
@@ -56,29 +56,29 @@
         // Categorias
         const CATEGORIES = [
             {
-                id: 'melhor-colega',
-                movieReference: 'Melhor Colega de Trabalho',
-                description: 'Aquela pessoa que sempre está disposta a ajudar, colabora em equipe e torna o ambiente de trabalho mais agradável.'
+                id: 'diabo-veste-prada',
+                movieReference: 'Estilo que inspira!',
+                description: 'Aquela pessoa que faz do estilo uma marca registrada, trazendo identidade e personalidade ao dia a dia.'
             },
             {
-                id: 'mais-criativo',
-                movieReference: 'Mais Criativo',
-                description: 'Quem sempre traz ideias inovadoras e soluções criativas para os desafios do dia a dia.'
+                id: 'a-procura-da-felicidade',
+                movieReference: 'Energia positiva!',
+                description: 'Aquela pessoa que mantém o bom humor e a leveza mesmo diante dos desafios.'
             },
             {
-                id: 'mais-dedicado',
-                movieReference: 'Mais Dedicado',
-                description: 'A pessoa que demonstra comprometimento excepcional e vai além do esperado em suas responsabilidades.'
+                id: 'sherlock-holmes',
+                movieReference: 'Mestre da investigação!',
+                description: 'Aquela pessoa que analisa um problema a fundo, resolve bugs e mistérios,  sempre encontrando a causa raiz dos problemas.'
             },
             {
-                id: 'melhor-lideranca',
-                movieReference: 'Melhor Liderança',
-                description: 'Quem inspira e guia a equipe com excelência, promovendo crescimento e resultados positivos.'
+                id: 'miss-simpatia',
+                movieReference: 'Queridinho(a) do time!',
+                description: 'Aquela pessoa que é referência em parceria, constrói relações positivas com empatia, respeito e colaboração.'
             },
             {
-                id: 'mais-colaborativo',
-                movieReference: 'Mais Colaborativo',
-                description: 'A pessoa que trabalha melhor em equipe, compartilha conhecimento e ajuda todos a crescerem juntos.'
+                id: 'todo-poderoso',
+                movieReference: 'Faz acontecer!',
+                description: 'Aquela pessoa que dá conta do recado, enfrenta o inesperado e transforma ideias em ação.'
             }
         ];
         // Função para enviar dados ao Google Sheets
@@ -98,7 +98,7 @@
                 const result = await response.json();
                 return result;
             } catch (error) {
-                console.error('Erro ao enviar para Google Sheets:', error);
+                console.error('Erro ao salvar sua indicação:', error);
                 return { success: false, message: 'Erro de conexão' };
             }
         };
@@ -157,8 +157,8 @@
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">🏆</span>
                                     <div>
-                                        <h1 className="text-xl font-serif font-bold text-[#d4af37]">CS AWARDS</h1>
-                                        <p className="text-xs text-gray-500 uppercase tracking-widest">Premiação 2026</p>
+                                        <h1 className="text-xl font-serif font-bold text-[#F5D98A]">CS AWARDS</h1>
+                                        <p className="text-xs text-white/60 uppercase tracking-widest">Premiação 2026</p>
                                     </div>
                                 </div>
                             </div>
@@ -304,7 +304,7 @@
                     // VALIDAÇÃO APENAS AQUI - quando tentar avançar
                     const nameParts = nomineeName.trim().split(/\s+/).filter(part => part.length > 0);
                     if (nameParts.length < 2) {
-                        setValidationError('Por favor, inclua o sobrenome. Digite nome e sobrenome completos (ex: João Silva)');
+                        setValidationError('Por favor, inclua o sobrenome. (ex: João Silva)');
                         return;
                     }
 
@@ -358,7 +358,7 @@
                     const result = await sendToGoogleSheets(newNomination);
                     
                     if (!result.success) {
-                        console.error('Erro ao salvar no Google Sheets:', result.message);
+                        console.error('Erro ao computar:', result.message);
                     }
 
                     setIsSubmitting(false);
@@ -452,12 +452,12 @@
                                 <div className="relative z-10 flex w-full h-full items-center justify-between px-6 md:px-16">
                                     <div className="flex flex-col items-start md:items-center justify-center flex-[1.5]">
                                         <div className="flex gap-4 mb-2 md:mb-6">
-                                            <span className="text-[#d4af37] text-xl md:text-3xl rotate-45 animate-pulse">✦</span>
-                                            <span className="text-[#d4af37] text-3xl md:text-5xl -mt-4 animate-pulse delay-100">✦</span>
-                                            <span className="text-[#d4af37] text-xl md:text-3xl rotate-45 animate-pulse delay-200">✦</span>
+                                            <span className="text-[#F5D98A] text-xl md:text-3xl rotate-45 animate-pulse">✦</span>
+                                            <span className="text-[#F5D98A] text-3xl md:text-5xl -mt-4 animate-pulse delay-100">✦</span>
+                                            <span className="text-[#F5D98A] text-xl md:text-3xl rotate-45 animate-pulse delay-200">✦</span>
                                         </div>
-                                        <h1 className="text-8xl md:text-[11rem] font-serif font-medium text-[#d4af37] leading-[0.8] tracking-tighter uppercase mb-2">CS</h1>
-                                        <h2 className="text-3xl md:text-6xl font-serif font-light text-[#d4af37] tracking-[0.3em] uppercase">AWARDS</h2>
+                                        <h1 className="text-8xl md:text-[11rem] font-serif font-medium text-[#F5D98A] leading-[0.8] tracking-tighter uppercase mb-2">CS</h1>
+                                        <h2 className="text-3xl md:text-6xl font-serif font-light text-[#F5D98A] tracking-[0.3em] uppercase">AWARDS</h2>
                                     </div>
                                     <div className="flex-1 h-full flex items-center justify-center pr-4 md:pr-0">
                                         <div className="h-[90%] w-auto relative drop-shadow-[0_0_40px_rgba(212,175,55,0.4)] hover:scale-105 transition-transform duration-700">
@@ -483,13 +483,13 @@
                                 
                                 <div className="space-y-4 text-gray-400 mb-8 text-sm md:text-base">
                                     <p>{CONFIG.TEXTS.WELCOME_DESCRIPTION}</p>
-                                    <div className="flex justify-center gap-8 text-[10px] uppercase tracking-widest font-black text-[#d4af37]">
+                                    <div className="flex justify-center gap-8 text-[10px] uppercase tracking-widest font-black text-[#F5D98A]">
                                         <span className="flex flex-col">
-                                            <span className="text-white/40 mb-1">⏱️ Duração</span>
+                                            <span className="text-text-white/80 mb-1">⏱️ Duração</span>
                                             <span>&lt; 3 minutos</span>
                                         </span>
                                         <span className="flex flex-col">
-                                            <span className="text-white/40 mb-1">🤫 Voto</span>
+                                            <span className="text-text-white/80 mb-1">🤫 Indicação</span>
                                             <span>Sigiloso</span>
                                         </span>
                                     </div>
@@ -498,7 +498,7 @@
                                 {/* Formulário de Identificação */}
                                 <div className="space-y-4 mb-8">
                                     <div className="text-left">
-                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black mb-2">
+                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-white/60 font-black mb-2">
                                             Identifique-se para continuar
                                         </label>
                                         <div className="space-y-3">
@@ -507,14 +507,14 @@
                                                 value={voterName}
                                                 onChange={(e) => setVoterName(e.target.value)}
                                                 placeholder="Seu nome completo..."
-                                                className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-gray-200 p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-500"
+                                                className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-white/60"
                                             />
                                             <input
                                                 type="email"
                                                 value={voterEmail}
                                                 onChange={(e) => setVoterEmail(e.target.value)}
                                                 placeholder="Seu e-mail corporativo..."
-                                                className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-gray-200 p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-500"
+                                                className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-white/60"
                                             />
                                         </div>
                                         {identificationError && (
@@ -523,7 +523,7 @@
                                             </p>
                                         )}
                                         <p className="mt-3 text-[9px] text-gray-600 italic text-center">
-                                            Seus dados são salvos automaticamente no Google Sheets para controle interno.
+                                           
                                         </p>
                                     </div>
                                 </div>
@@ -548,8 +548,8 @@
                                             ) : (
                                                 <div className="bg-gray-950/80 p-4 rounded-xl border border-gray-800/50 space-y-3">
                                                     <div className="text-center">
-                                                        <h3 className="text-[#d4af37] font-black text-xs uppercase tracking-widest mb-1">🔐 Admin</h3>
-                                                        <p className="text-gray-500 text-[10px]">Acesso rápido para exportação</p>
+                                                        <h3 className="text-[#F5D98A] font-black text-xs uppercase tracking-widest mb-1">🔐 Admin</h3>
+                                                        <p className="text-white/60 text-[10px]">Acesso rápido para exportação</p>
                                                     </div>
                                                     <div className="space-y-2">
                                                         <input
@@ -558,7 +558,7 @@
                                                             onChange={(e) => setAdminPassword(e.target.value)}
                                                             onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
                                                             placeholder="Senha..."
-                                                            className="w-full bg-black/60 border border-gray-700 focus:border-[#d4af37] text-gray-200 p-3 rounded-lg outline-none transition-all text-xs placeholder:text-gray-500"
+                                                            className="w-full bg-black/60 border border-gray-700 focus:border-[#d4af37] text-white p-3 rounded-lg outline-none transition-all text-xs placeholder:text-white/60"
                                                             autoFocus
                                                         />
                                                         <div className="flex gap-2">
@@ -567,7 +567,7 @@
                                                                     setShowAdminLogin(false);
                                                                     setAdminPassword('');
                                                                 }}
-                                                                className="flex-1 py-2 border border-gray-700 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-md hover:bg-gray-900 transition-all"
+                                                                className="flex-1 py-2 border border-gray-700 text-white/60 text-[10px] font-bold uppercase tracking-widest rounded-md hover:bg-gray-900 transition-all"
                                                             >
                                                                 Cancelar
                                                             </button>
@@ -637,18 +637,18 @@
                                         {isSubmitting ? (
                                             <div className="w-8 h-8 border-4 border-[#d4af37] border-t-transparent rounded-full animate-spin"></div>
                                         ) : (
-                                            <span className="text-5xl text-[#d4af37]">✓</span>
+                                            <span className="text-5xl text-[#F5D98A]">✓</span>
                                         )}
                                     </div>
-                                    <p className="text-[#d4af37] font-black uppercase tracking-[0.3em] text-sm">
-                                        {isSubmitting ? 'Salvando no Google Sheets...' : 'Voto Computado!'}
+                                    <p className="text-[#F5D98A] font-black uppercase tracking-[0.3em] text-sm">
+                                        {isSubmitting ? 'A academia está computando sua indicação...' : 'Sua indicação foi computada!'}
                                     </p>
                                 </div>
                             )}
 
                             <div className="flex justify-between items-center mb-10">
                                 <div className="flex flex-col">
-                                    <span className="text-[#d4af37] font-black text-[9px] uppercase tracking-[0.3em] mb-1">Progresso da Indicação</span>
+                                    <span className="text-[#F5D98A] font-black text-[9px] uppercase tracking-[0.3em] mb-1">Progresso da Indicação</span>
                                     <span className="text-white font-serif text-sm">Categoria {currentCategoryIndex + 1} de {CATEGORIES.length}</span>
                                 </div>
                                 <div className="h-1.5 w-32 md:w-48 bg-gray-900 rounded-full overflow-hidden">
@@ -663,7 +663,7 @@
                                 <div className="space-y-10">
                                     <div className="space-y-6">
                                         <div className="oscar-bg-gold/5 border-l-4 border-[#d4af37] p-6 rounded-r-xl shadow-lg">
-                                            <h3 className="text-[#d4af37] font-serif font-black text-2xl md:text-3xl leading-tight">
+                                            <h3 className="text-[#F5D98A] font-serif font-black text-2xl md:text-3xl leading-tight">
                                                 {currentCategory.movieReference}
                                             </h3>
                                         </div>
@@ -673,7 +673,7 @@
                                     </div>
 
                                     <div className="space-y-4 pt-4">
-                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">
+                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-white/60 font-black">
                                             Quem merece este reconhecimento?
                                         </label>
                                         
@@ -685,7 +685,7 @@
                                                 onChange={(e) => setNomineeName(e.target.value)}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleNext()}
                                                 placeholder="Nome completo do indicado (ex: João Silva)..."
-                                                className={`w-full bg-black/60 border-2 text-gray-200 p-5 rounded-2xl outline-none transition-all duration-300 text-xl font-medium placeholder:text-gray-500 ${
+                                                className={`w-full bg-black/60 border-2 text-white p-5 rounded-2xl outline-none transition-all duration-300 text-xl font-medium placeholder:text-white/60 ${
                                                     validationError 
                                                         ? 'border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.2)]' 
                                                         : 'border-gray-800 focus:border-[#d4af37] focus:bg-black/80'
@@ -722,14 +722,14 @@
                                         <p className="text-[10px] text-gray-600 uppercase tracking-widest font-black mb-2">
                                             Indicado para o prêmio:
                                         </p>
-                                        <p className="text-3xl font-serif font-black text-[#d4af37] uppercase tracking-wider underline underline-offset-8 decoration-1 decoration-[#d4af37]/30">
+                                        <p className="text-3xl font-serif font-black text-[#F5D98A] uppercase tracking-wider underline underline-offset-8 decoration-1 decoration-[#d4af37]/30">
                                             {nomineeName}
                                         </p>
                                     </div>
 
                                     <div className="space-y-4">
-                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">
-                                            Justificativa (Opcional - Máx 140 chars)
+                                        <label className="block text-[10px] uppercase tracking-[0.3em] text-white/60 font-black">
+                                            Qual foi o momento, atitude ou detalhe que fez você pensar: “essa pessoa merece essa indicação”?
                                         </label>
                                         
                                         <div className="relative">
@@ -740,7 +740,7 @@
                                                 onChange={(e) => setReason(e.target.value)}
                                                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleNext()}
                                                 placeholder="Por que essa indicação? Conte-nos um pouco..."
-                                                className="w-full h-44 bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-gray-200 p-6 rounded-2xl outline-none transition-all resize-none text-lg font-light leading-relaxed placeholder:text-gray-500"
+                                                className="w-full h-44 bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-6 rounded-2xl outline-none transition-all resize-none text-lg font-light leading-relaxed placeholder:text-white/60"
                                             />
                                             <div className={`absolute bottom-5 right-6 text-[11px] font-black tracking-widest ${
                                                 reason.length >= 130 ? 'text-red-500' : 'text-gray-700'
@@ -763,7 +763,7 @@
                                             onClick={handleNext}
                                             className="flex-[2] py-5 oscar-bg-gold text-black font-black uppercase tracking-[0.25em] rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-500 shadow-2xl text-sm"
                                         >
-                                            {isSubmitting ? 'Salvando...' : 'Confirmar Voto'}
+                                            {isSubmitting ? 'Salvando...' : 'Confirmar indicação'}
                                         </button>
                                     </div>
                                 </div>
@@ -782,14 +782,14 @@
                             </h2>
                             
                             <p className="text-gray-400 mb-14 text-sm md:text-lg font-light leading-relaxed max-w-sm">
-                                Seus votos foram registrados no tapete vermelho e salvos automaticamente no Google Sheets. <br />
-                                {CONFIG.TEXTS.CEREMONY_MESSAGE} <strong className="text-[#d4af37] font-bold">{CONFIG.CEREMONY_DATE}</strong>!
+                                Suas indicações foram registradas no tapete vermelho. <br />
+                                {CONFIG.TEXTS.CEREMONY_MESSAGE} <strong className="text-[#F5D98A] font-bold">{CONFIG.CEREMONY_DATE}</strong>!
                             </p>
 
                             <div className="w-full space-y-6">
                                 <button
                                     onClick={handleReset}
-                                    className="w-full py-5 border-2 border-[#d4af37]/40 text-[#d4af37] font-black uppercase tracking-[0.3em] rounded-xl hover:bg-[#d4af37]/10 hover:border-[#d4af37] transition-all active:scale-[0.98] text-sm"
+                                    className="w-full py-5 border-2 border-[#d4af37]/40 text-[#F5D98A] font-black uppercase tracking-[0.3em] rounded-xl hover:bg-[#d4af37]/10 hover:border-[#d4af37] transition-all active:scale-[0.98] text-sm"
                                 >
                                     Indicar outra pessoa
                                 </button>
@@ -807,8 +807,8 @@
                                             ) : (
                                                 <div className="bg-gray-950 p-6 rounded-xl border border-gray-800 space-y-4">
                                                     <div className="text-center">
-                                                        <h3 className="text-[#d4af37] font-black text-sm uppercase tracking-widest mb-2">🔐 Login Administrativo</h3>
-                                                        <p className="text-gray-500 text-xs">Digite a senha para acessar funcionalidades administrativas</p>
+                                                        <h3 className="text-[#F5D98A] font-black text-sm uppercase tracking-widest mb-2">🔐 Login Administrativo</h3>
+                                                        <p className="text-white/60 text-xs">Digite a senha para acessar funcionalidades administrativas</p>
                                                     </div>
                                                     <div className="space-y-3">
                                                         <input
@@ -817,7 +817,7 @@
                                                             onChange={(e) => setAdminPassword(e.target.value)}
                                                             onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
                                                             placeholder="Senha de administrador..."
-                                                            className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-gray-200 p-4 rounded-xl outline-none transition-all text-sm placeholder:text-gray-500"
+                                                            className="w-full bg-black/60 border-2 border-gray-800 focus:border-[#d4af37] text-white p-4 rounded-xl outline-none transition-all text-sm placeholder:text-white/60"
                                                             autoFocus
                                                         />
                                                         <div className="flex gap-3">
@@ -826,7 +826,7 @@
                                                                     setShowAdminLogin(false);
                                                                     setAdminPassword('');
                                                                 }}
-                                                                className="flex-1 py-3 border border-gray-700 text-gray-500 text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-gray-900 transition-all"
+                                                                className="flex-1 py-3 border border-gray-700 text-white/60 text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-gray-900 transition-all"
                                                             >
                                                                 Cancelar
                                                             </button>
@@ -854,7 +854,7 @@
                                                         <span className="text-green-400 text-lg">✓</span>
                                                         <div>
                                                             <p className="text-green-400 font-bold text-xs uppercase tracking-widest">Administrador Autenticado</p>
-                                                            <p className="text-green-300/70 text-[10px]">Dados sincronizados com Google Sheets</p>
+                                                            <p className="text-green-300/70 text-[10px]">Dados sincronizados</p>
                                                         </div>
                                                     </div>
                                                     <button
@@ -893,7 +893,8 @@
         };
 
         // Render the app
-        ReactDOM.render(<App />, document.getElementById('root'));
+        const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<App />);;
     </script>
 </body>
 </html>
+
