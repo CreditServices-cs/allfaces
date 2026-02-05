@@ -178,7 +178,7 @@
                         <div className="absolute bottom-40 right-10 w-1 h-1 bg-white rounded-full animate-pulse opacity-15 delay-3000"></div>
                     </div>
                 </div>
-            );
+                       );
         };
         // Main App Component
         const App = () => {
@@ -208,6 +208,25 @@
             });
             const [identificationError, setIdentificationError] = useState('');
 
+            const getNominationsByEmail = (email) => {
+                const normalizedEmail = email.trim().toLowerCase();
+                return allNominations.filter(
+                    nomination => (nomination.voterEmail || '').toLowerCase() === normalizedEmail
+                );
+            };
+
+            const getNextAvailableCategoryIndex = (startIndex, nominationsByEmail) => {
+                const nominatedCategoryIds = new Set(
+                    nominationsByEmail.map(nomination => nomination.categoryId)
+                );
+                for (let i = startIndex; i < CATEGORIES.length; i += 1) {
+                    if (!nominatedCategoryIds.has(CATEGORIES[i].id)) {
+                        return i;
+                    }
+                }
+                return -1;
+            };
+
             const currentCategory = CATEGORIES[currentCategoryIndex];
 
             useEffect(() => {
@@ -217,12 +236,12 @@
                 }
             }, []);
 
-            const handleStart = () => {
-                // Validação de identificação
-                if (!voterName.trim()) {
-                    setIdentificationError('Por favor, digite seu nome completo.');
-                    return;
-                }
+            const handleStart = () => {␊
+                // Validação de identificação␊
+                if (!voterName.trim()) {␊
+                    setIdentificationError('Por favor, digite seu nome completo.');␊
+                    return;␊
+                }␊
                 
                 if (!voterEmail.trim()) {
                     setIdentificationError('Por favor, digite seu e-mail.');
@@ -231,8 +250,16 @@
                 
                 // Validação básica de e-mail
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(voterEmail.trim())) {
+                const normalizedEmail = voterEmail.trim().toLowerCase();
+                if (!emailRegex.test(normalizedEmail)) {
                     setIdentificationError('Por favor, digite um e-mail válido.');
+                    return;
+                }
+
+                const nominationsByEmail = getNominationsByEmail(normalizedEmail);
+                const nextCategoryIndex = getNextAvailableCategoryIndex(0, nominationsByEmail);
+                if (nextCategoryIndex === -1) {
+                    setIdentificationError('Você já indicou alguém em todas as categorias. É permitido apenas 1 indicação por categoria.');
                     return;
                 }
                 
@@ -241,6 +268,7 @@
                 localStorage.setItem('cs-awards-voter-email', voterEmail.trim());
                 
                 setIdentificationError('');
+                setCurrentCategoryIndex(nextCategoryIndex);
                 setStep('nominating');
             };
 
@@ -283,14 +311,18 @@
             };
             // FUNÇÃO HANDLENEXT CORRIGIDA - validação só no clique
             const handleNext = async () => {
-                const isLastCategory = currentCategoryIndex === CATEGORIES.length - 1;
+                const nominationsByEmail = getNominationsByEmail(voterEmail);
 
                 if (nomineeName.trim().toUpperCase() === 'NÃO') {
                     setValidationError(''); // Limpa erro se for "NÃO"
-                    if (isLastCategory) {
+                    const nextCategoryIndex = getNextAvailableCategoryIndex(
+                        currentCategoryIndex + 1,
+                        nominationsByEmail
+                    );
+                    if (nextCategoryIndex === -1) {
                         setStep('finished');
                     } else {
-                        setCurrentCategoryIndex(prev => prev + 1);
+                        setCurrentCategoryIndex(nextCategoryIndex);
                         setNomineeName('');
                         setReason('');
                         setIsAskingReason(false);
@@ -300,6 +332,14 @@
 
                 if (!isAskingReason) {
                     if (!nomineeName.trim()) return;
+
+                    const hasNominationInCategory = nominationsByEmail.some(
+                        nomination => nomination.categoryId === currentCategory.id
+                    );
+                    if (hasNominationInCategory) {
+                        setValidationError('Você já indicou alguém nesta categoria. É permitido apenas 1 indicação por categoria.');
+                        return;
+                    }
                     
                     // VALIDAÇÃO APENAS AQUI - quando tentar avançar
                     const nameParts = nomineeName.trim().split(/\s+/).filter(part => part.length > 0);
@@ -325,18 +365,7 @@
 
                     // Verifica se já foi indicado nesta categoria
                     const alreadyNominated = allNominations.some(
-                        n => n.categoryId === currentCategory.id && 
-                        n.nomineeName.toLowerCase() === normalizedName
-                    );
-                    if (alreadyNominated) {
-                        setValidationError('Esta pessoa já foi indicada por você nesta categoria!');
-                        return;
-                    }
-
-                    // Se chegou até aqui, limpa o erro e avança
-                    setValidationError('');
-                    setIsAskingReason(true);
-                } else {
+@@ -340,65 +380,69 @@
                     setIsSubmitting(true);
                     
                     const newNomination = {
@@ -366,10 +395,14 @@
 
                     setTimeout(() => {
                         setShowSuccessMark(false);
-                        if (isLastCategory) {
+                        const nextCategoryIndex = getNextAvailableCategoryIndex(
+                            currentCategoryIndex + 1,
+                            [...nominationsByEmail, newNomination]
+                        );
+                        if (nextCategoryIndex === -1) {
                             setStep('finished');
                         } else {
-                            setCurrentCategoryIndex(prev => prev + 1);
+                            setCurrentCategoryIndex(nextCategoryIndex);
                             setNomineeName('');
                             setReason('');
                             setIsAskingReason(false);
@@ -402,78 +435,7 @@
                     return;
                 }
 
-                const headers = ["Votante", "Email", "Categoria", "Indicado", "Motivo", "Data/Hora"];
-                const rows = dataToExport.map(n => [
-                    `"${n.voterName || 'N/A'}"`,
-                    `"${n.voterEmail || 'N/A'}"`,
-                    `"${n.categoryName || 'N/A'}"`,
-                    `"${n.nomineeName || 'N/A'}"`,
-                    `"${n.reason || ''}"`,
-                    `"${n.timestamp ? new Date(n.timestamp).toLocaleString('pt-BR') : 'N/A'}"`
-                ]);
-
-                const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.setAttribute("href", url);
-                link.setAttribute("download", `${CONFIG.EXPORT_FILENAME_PREFIX}_${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            };
-
-            const clearAllData = async () => {
-                if (!isAdminAuthenticated) {
-                    alert("Acesso negado! Apenas administradores podem limpar dados.");
-                    return;
-                }
-
-                if (confirm("Tem certeza que deseja limpar todos os dados salvos? Esta ação não pode ser desfeita.")) {
-                    localStorage.removeItem('cs-awards-nominations');
-                    setAllNominations([]);
-                    
-                    const result = await clearGoogleSheets(CONFIG.ADMIN_PASSWORD);
-                    
-                    if (result.success) {
-                        alert("Dados limpos com sucesso!");
-                    } else {
-                        alert("Dados locais limpos, mas houve erro ao limpar Google Sheets: " + result.message);
-                    }
-                }
-            };
-            return (
-                <Layout showHeader={step !== 'welcome'}>
-                    {step === 'welcome' && (
-                        <div className="flex flex-col items-center animate-fade-in">
-                             <div className="w-full relative bg-black rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,1)] border border-gray-900 mb-10 aspect-video">
-                                <img
-                                    src="assets/cs-awards-hero.png.png"
-                                    alt="Capa do CS Awards"
-                                    className="absolute inset-0 h-full w-full object-cover"
-                                    loading="eager"
-                                />
-                            </div>
-
-                            <div className="max-w-md w-full px-4 text-center">
-                                <h2 className="text-2xl md:text-3xl font-serif font-bold text-white mb-4">{CONFIG.TEXTS.WELCOME_TITLE}</h2>
-                                
-                                <div className="space-y-4 text-gray-400 mb-8 text-sm md:text-base">
-                                    <p>{CONFIG.TEXTS.WELCOME_DESCRIPTION}</p>
-                                    <div className="flex justify-center gap-8 text-[10px] uppercase tracking-widest font-black text-[#F5D98A]">
-                                        <span className="flex flex-col">
-                                            <span className="text-text-white/80 mb-1">⏱️ Duração</span>
-                                            <span>&lt; 3 minutos</span>
-                                        </span>
-                                        <span className="flex flex-col">
-                                            <span className="text-text-white/80 mb-1">🤫 Indicação</span>
-                                            <span>Sigiloso</span>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Formulário de Identificação */}
-                                <div className="space-y-4 mb-8">
+@@ -477,53 +521,53 @@
                                     <div className="text-left">
                                         <label className="block text-[10px] uppercase tracking-[0.3em] text-white/60 font-black mb-2">
                                             Identifique-se para continuar
@@ -499,9 +461,9 @@
                                                 <span>⚠️</span> {identificationError}
                                             </p>
                                         )}
-                                        <p className="mt-3 text-[9px] text-gray-600 italic text-center">
-                                           
-                                        </p>
+                                        <p className="mt-3 text-[9px] text-gray-600 italic text-center">␊
+                                            Permitido apenas 1 indicação por categoria.
+                                        </p>␊
                                     </div>
                                 </div>
 
@@ -874,5 +836,6 @@
     </script>
 </body>
 </html>
+
 
 
