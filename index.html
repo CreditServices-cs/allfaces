@@ -231,8 +231,17 @@
                 
                 // Validação básica de e-mail
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(voterEmail.trim())) {
+                const normalizedEmail = voterEmail.trim().toLowerCase();
+                if (!emailRegex.test(normalizedEmail)) {
                     setIdentificationError('Por favor, digite um e-mail válido.');
+                    return;
+                }
+
+                const nominationsByEmail = allNominations.filter(
+                    nomination => (nomination.voterEmail || '').toLowerCase() === normalizedEmail
+                );
+                if (nominationsByEmail.length >= CATEGORIES.length) {
+                    setIdentificationError('Você já indicou alguém em todas as categorias. É permitido apenas 1 indicação por categoria.');
                     return;
                 }
                 
@@ -500,7 +509,7 @@
                                             </p>
                                         )}
                                         <p className="mt-3 text-[9px] text-gray-600 italic text-center">
-                                           
+                                            Permitido apenas 1 indicação por categoria.
                                         </p>
                                     </div>
                                 </div>
